@@ -1,0 +1,2523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Quick Commerce Prototype — Zepto-style Flow</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,700&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   DESIGN TOKENS — sampled from the reference screenshots
+   ============================================================ */
+:root{
+  --purple:#7A3BEF;          /* zepto wordmark / accents */
+  --purple-deep:#4C1D95;
+  --lav-1:#F0E9FC;           /* header gradient top */
+  --lav-2:#E4D7FA;           /* header gradient bottom */
+  --lav-card:#EFE8FB;
+  --pink:#FF2D6C;            /* primary CTA */
+  --pink-deep:#DE1257;
+  --pink-soft:#FFE9F0;
+  --green:#1F8A3D;           /* price pill */
+  --green-deep:#156A2E;
+  --green-bg:#DFF0E4;        /* savings banner */
+  --green-ink:#185C2C;
+  --amber:#E56A00;
+  --ink:#1D1D29;
+  --sub:#6E7280;
+  --faint:#9AA0AC;
+  --line:#E7E8EC;
+  --bg:#F4F5F7;
+  --card:#FFFFFF;
+  --dark:#23262F;
+  --r-lg:18px; --r-md:14px; --r-sm:10px;
+  --shadow-card:0 1px 2px rgba(20,20,43,.05), 0 4px 14px rgba(20,20,43,.05);
+  --shadow-float:0 10px 30px rgba(20,20,43,.22);
+  --font:'Plus Jakarta Sans', -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{
+  font-family:var(--font); color:var(--ink); background:#101019;
+  background-image:radial-gradient(1200px 600px at 50% -10%, #2A1E4F 0%, #101019 60%);
+  display:flex; align-items:center; justify-content:center; min-height:100vh;
+}
+button{font-family:inherit;border:none;background:none;cursor:pointer;color:inherit}
+input{font-family:inherit}
+img,svg{display:block}
+::-webkit-scrollbar{display:none}
+*{scrollbar-width:none}
+
+/* ============================================================
+   PHONE FRAME
+   ============================================================ */
+.phone{
+  position:relative; width:min(414px,100vw); height:min(896px,100vh);
+  background:var(--bg); overflow:hidden;
+  box-shadow:0 30px 80px rgba(0,0,0,.55);
+}
+@media (min-width:480px){ .phone{border-radius:34px; border:1px solid rgba(255,255,255,.08)} }
+
+/* status bar */
+.statusbar{
+  position:absolute; top:0; left:0; right:0; height:34px; z-index:60;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:0 18px; font-size:13px; font-weight:800; pointer-events:none; color:var(--ink);
+}
+.statusbar .sb-r{display:flex;align-items:center;gap:6px;font-size:10.5px;font-weight:800}
+.statusbar svg{width:16px;height:16px}
+
+/* ============================================================
+   SCREENS + ROUTER
+   ============================================================ */
+.screen{
+  position:absolute; inset:0; display:flex; flex-direction:column;
+  background:var(--bg); opacity:0; pointer-events:none; transform:translateX(14px);
+  transition:opacity .22s ease, transform .22s ease; z-index:1;
+}
+.screen.on{opacity:1; pointer-events:auto; transform:none; z-index:2}
+.scroll{flex:1; overflow-y:auto; overscroll-behavior:contain}
+.pad-status{padding-top:34px}
+
+/* ============================================================
+   GENERIC BITS
+   ============================================================ */
+.icbtn{width:42px;height:42px;border-radius:50%;background:#fff;border:1px solid var(--line);
+  display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+.icbtn svg{width:20px;height:20px}
+.chev{width:18px;height:18px;flex:0 0 auto}
+.linkpink{color:var(--pink);font-weight:800}
+.dashed{border-top:1.5px dashed #D7D9E0;margin:14px 0}
+.card{background:var(--card);border-radius:var(--r-lg);box-shadow:var(--shadow-card)}
+.section-label{font-size:13px;font-weight:800;letter-spacing:.08em;color:#5A5F6B;text-transform:uppercase;margin:20px 16px 10px}
+
+/* buttons */
+.btn{border-radius:14px;font-weight:800;display:flex;align-items:center;justify-content:center;gap:8px}
+.btn-pink{background:var(--pink);color:#fff;box-shadow:0 8px 20px rgba(255,45,108,.35)}
+.btn-pink:active{background:var(--pink-deep)}
+.btn-ghost{border:1.5px solid var(--line);color:var(--faint);background:#fff}
+.btn-outline{border:1.5px solid var(--pink);color:var(--pink);background:#fff}
+.btn-big{height:56px;font-size:17px;width:100%}
+.btn:disabled{background:#E4E6EA;color:#A6ABB5;box-shadow:none;pointer-events:none}
+
+/* price pill */
+.pricepill{display:inline-flex;align-items:center;background:var(--green);color:#fff;
+  font-weight:800;border-radius:9px;padding:3px 9px;font-size:14.5px}
+.mrp{color:#9AA0AC;text-decoration:line-through;font-weight:600;font-size:13px}
+.offrow{display:flex;align-items:center;gap:8px;margin-top:6px}
+.offtag{color:var(--green);font-weight:800;font-size:11px;white-space:nowrap}
+.offrow .dash{flex:1;border-top:1.5px dashed #DFE1E6}
+
+/* toast */
+#toast{position:absolute;left:50%;bottom:110px;transform:translateX(-50%) translateY(16px);
+  background:#15161C;color:#fff;font-size:13.5px;font-weight:700;padding:11px 18px;border-radius:14px;
+  opacity:0;pointer-events:none;transition:.25s;z-index:120;white-space:nowrap;box-shadow:var(--shadow-float)}
+#toast.show{opacity:1;transform:translateX(-50%)}
+
+/* ============================================================
+   HOME — lavender header
+   ============================================================ */
+#s-home{background:#fff}
+.hdr-lav{background:linear-gradient(180deg,var(--lav-1),var(--lav-2));padding:40px 16px 0}
+.eta-row{display:flex;align-items:flex-start;justify-content:space-between}
+.eta{font-size:24px;font-weight:800;letter-spacing:-.02em;display:flex;align-items:center;gap:4px}
+.eta .bolt{color:var(--ink)}
+.addr-line{margin-top:2px;font-size:13px;font-weight:600;color:#3C3556;display:flex;align-items:center;gap:4px;max-width:300px}
+.addr-line b{font-weight:800}
+.addr-line .txt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:250px}
+.avatar{width:40px;height:40px;border-radius:50%;border:2.5px solid var(--ink);display:flex;align-items:center;justify-content:center}
+.avatar svg{width:22px;height:22px}
+.apptabs{display:flex;gap:8px;margin-top:14px;align-items:flex-end}
+.apptab{background:rgba(255,255,255,.75);border-radius:16px 16px 0 0;padding:12px 14px;font-weight:800;font-size:13px;
+  color:#4B5563;flex:1;text-align:center;transform:translateY(0);border:1px solid rgba(255,255,255,.6);border-bottom:none}
+.apptab .sm{display:block;font-size:9px;font-weight:700;letter-spacing:.02em}
+.apptab.active{background:#fff;padding:14px;box-shadow:0 -6px 16px rgba(76,29,149,.08)}
+.wordmark{font-size:21px;font-weight:800;color:var(--purple);letter-spacing:-.03em}
+.tab-cafe{color:#B45309}.tab-cafe .badge{background:#EA580C;color:#fff;border-radius:6px;font-size:9.5px;padding:1px 6px;display:inline-block;margin-top:2px}
+.home-white{background:#fff;padding:12px 16px 0}
+.search-row{display:flex;gap:10px}
+.searchbar{flex:1;display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--line);
+  border-radius:14px;padding:0 14px;height:50px;box-shadow:var(--shadow-card)}
+.searchbar svg{width:19px;height:19px;flex:0 0 auto}
+.searchbar .ph{color:#575C68;font-weight:600;font-size:15.5px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.ad-tile{width:96px;border-radius:12px;background:linear-gradient(135deg,#FFF3E8,#FFE8D6);border:1px solid #F6DEC8;
+  padding:7px 9px;font-size:11px;font-weight:800;color:#C2410C;line-height:1.25;display:flex;align-items:center}
+.cat-row{display:flex;gap:26px;margin-top:14px;padding:0 2px;overflow-x:auto}
+.cat{font-size:15px;font-weight:700;color:#4B5563;padding-bottom:10px;position:relative;white-space:nowrap;display:flex;flex-direction:column;align-items:center;gap:4px}
+.cat .em{font-size:20px;line-height:1}
+.cat.active{color:var(--ink);font-weight:800}
+.cat.active::after{content:'';position:absolute;bottom:0;left:-4px;right:-4px;height:3.5px;background:var(--ink);border-radius:99px}
+.home-body{background:#fff}
+
+/* fees banner */
+.fees{background:linear-gradient(180deg,var(--lav-2),#EFE9FC);padding:14px 16px 12px;margin-top:2px}
+.fees-tiles{display:flex;gap:10px}
+.fee-tile{flex:1;background:rgba(255,255,255,.65);border:1px solid rgba(255,255,255,.9);border-radius:16px;
+  padding:14px 12px;display:flex;align-items:center;gap:10px}
+.fee-tile .big{font-size:19px;font-weight:800;color:#5B21B6;letter-spacing:-.02em;line-height:1.05}
+.fee-tile .big i{font-style:normal;font-weight:600;color:#7C3AED}
+.fee-tile .em{font-size:26px}
+.checks{display:flex;justify-content:space-between;margin-top:12px;gap:6px;flex-wrap:wrap}
+.check{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:800;color:#4C1D95}
+.check .dot{width:16px;height:16px;border-radius:50%;background:#16A34A;color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px}
+.tnc{font-size:9.5px;color:#7C6FA0;text-align:center;margin-top:8px;font-weight:600}
+
+/* referral */
+.refer{margin:16px;border-radius:18px;background:linear-gradient(135deg,#F3ECFF,#EDE3FE);padding:18px;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.refer h3{font-size:19px;font-weight:800;color:#2E1065;line-height:1.25}
+.refer h3 span{color:var(--purple)}
+.refer .enter{margin-top:12px;background:#fff;border-radius:12px;padding:10px 16px;font-weight:800;font-size:14px;display:inline-flex;align-items:center;gap:6px;box-shadow:var(--shadow-card)}
+.refer .arts{font-size:34px;letter-spacing:-6px}
+
+/* fresh @5 */
+.fresh-head{padding:6px 16px 0}
+.fresh-title{font-size:34px;font-weight:800;color:#1F8A3D;letter-spacing:-.04em;font-style:italic;display:flex;align-items:center;gap:10px}
+.fresh-title .hl{background:#EAFF3D;color:#136A2E;font-style:italic;padding:2px 10px;border-radius:4px;transform:rotate(-2deg);font-size:26px}
+.fresh-sub{color:#1F8A3D;font-weight:700;font-size:15px;margin-top:2px}
+.circles{display:flex;gap:18px;overflow-x:auto;padding:16px 16px 6px}
+.circle{display:flex;flex-direction:column;align-items:center;gap:8px;flex:0 0 auto;width:70px}
+.circle .ic{width:66px;height:66px;border-radius:50%;background:#F5F1FB;display:flex;align-items:center;justify-content:center;font-size:32px;border:1px solid #EEE9F8}
+.circle.z5 .ic{background:radial-gradient(circle at 35% 30%,#FF4D88,#D40F5B);color:#fff;font-weight:800;font-size:20px;box-shadow:0 6px 14px rgba(222,18,87,.35)}
+.circle span{font-size:12.5px;font-weight:700;color:#3F4451;text-align:center;line-height:1.2}
+.circle.selected span{color:var(--ink);font-weight:800}
+.circle.selected .ic{outline:2.5px solid var(--ink);outline-offset:2px}
+
+/* product cards */
+.hscroll{display:flex;gap:12px;overflow-x:auto;padding:10px 16px 4px}
+.pcard{flex:0 0 150px;width:150px;position:relative}
+.grid3 .pcard{flex:none;width:auto}
+.pimg{height:118px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:46px;position:relative;border:1px solid rgba(0,0,0,.04)}
+.pimg .heart{position:absolute;top:8px;right:8px}
+.pimg .heart svg{width:18px;height:18px}
+.addwrap{position:absolute;right:8px;bottom:-12px}
+.addbtn{width:38px;height:38px;border-radius:12px;background:#fff;border:1.5px solid var(--pink);color:var(--pink);
+  font-size:22px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 10px rgba(20,20,43,.12)}
+.stepper{display:flex;align-items:center;background:var(--pink);color:#fff;border-radius:12px;height:38px;box-shadow:0 6px 14px rgba(255,45,108,.35)}
+.stepper button{width:34px;height:38px;color:#fff;font-size:19px;font-weight:800;display:flex;align-items:center;justify-content:center}
+.stepper .q{min-width:18px;text-align:center;font-weight:800;font-size:15px}
+.stepper.lite{background:#FDEFF4;color:var(--pink-deep);box-shadow:none;border:1.5px solid #F8CBDA}
+.stepper.lite button{color:var(--pink-deep)}
+.p-meta{margin-top:16px}
+.p-name{font-size:13.5px;font-weight:700;line-height:1.3;margin-top:7px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:35px}
+.p-unit{font-size:12px;color:var(--sub);font-weight:600;margin-top:3px}
+.pricebar{display:flex;align-items:center;gap:8px}
+
+/* biryani banner */
+.biryani{margin:22px 16px 6px;border-radius:20px;overflow:hidden;background:linear-gradient(135deg,#F3E8FF 0%,#FBEFF7 55%,#FFF4E0 100%);padding:18px;position:relative}
+.biryani .wd{font-family:Georgia,'Times New Roman',serif;letter-spacing:.35em;font-size:11px;color:#8A6D3B;font-weight:700}
+.biryani h2{font-family:Georgia,'Times New Roman',serif;font-size:32px;color:#6B4E1E;letter-spacing:.06em;line-height:1.05;margin-top:2px}
+.biryani .pot{position:absolute;right:6px;top:2px;font-size:64px;filter:drop-shadow(0 8px 10px rgba(0,0,0,.15))}
+.b-tiles{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:14px}
+.b-tile{background:rgba(255,255,255,.8);border:1px solid rgba(255,255,255,.9);border-radius:12px;padding:10px 8px;font-size:11.5px;font-weight:800;color:#493265;text-align:center}
+.b-tile .em{font-size:22px;display:block;margin-bottom:4px}
+.b-price{display:inline-block;background:#3F2A14;color:#fff;font-weight:800;border-radius:8px;padding:3px 8px;font-size:12px;margin-top:8px}
+.b-price s{opacity:.6;font-weight:600;margin-right:5px}
+
+/* coupons strip */
+.h-title{font-size:19px;font-weight:800;padding:20px 16px 4px;letter-spacing:-.01em}
+.chipscroll{display:flex;gap:10px;overflow-x:auto;padding:10px 16px}
+.cchip{flex:0 0 auto;width:104px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px 10px;text-align:center;box-shadow:var(--shadow-card)}
+.cchip .b{width:30px;height:30px;margin:0 auto 8px;border-radius:9px;background:#1F8A3D;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px}
+.cchip h5{font-size:13.5px;font-weight:800;line-height:1.15}
+.cchip p{font-size:10.5px;color:var(--sub);font-weight:600;margin-top:3px}
+.bhim{margin:4px 16px;display:flex;gap:10px}
+.bhimcard{flex:1;background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px;display:flex;align-items:center;gap:10px;box-shadow:var(--shadow-card)}
+.bhimcard .tri{width:26px;height:26px;background:conic-gradient(from 200deg,#FF8A00,#0AA84F,#FF8A00);border-radius:6px;flex:0 0 auto}
+.bhimcard b{font-size:12.5px;line-height:1.25;display:block}
+.bhimcard span{font-size:10.5px;color:var(--sub);font-weight:600}
+
+/* deals @9 */
+.deals-head{text-align:center;margin-top:22px}
+.deals-head h2{font-size:24px;font-weight:800;color:#156A2E;letter-spacing:.01em}
+.deals-head p{font-size:13px;color:#3F4451;font-weight:700;margin-top:2px}
+
+/* payday */
+.payday{margin:20px 16px;border-radius:20px;background:linear-gradient(160deg,#0E3B1E,#1C6B36);padding:18px;color:#fff;text-align:center}
+.payday h2{font-size:30px;font-weight:800;color:#F4E04D;letter-spacing:.04em;text-shadow:0 2px 0 rgba(0,0,0,.25)}
+.payday .sub{font-size:12px;font-weight:800;letter-spacing:.14em;margin-top:2px}
+.pd-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:14px}
+.pd-tile{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);border-radius:12px;padding:10px 6px}
+.pd-tile b{font-size:11.5px;display:block;line-height:1.2}
+.pd-tile span{font-size:10px;font-weight:800;color:#F4E04D;display:block;margin-top:4px}
+.pd-tile .em{font-size:20px;display:block;margin-bottom:4px}
+
+/* buy again */
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px 10px;padding:8px 16px 24px}
+.homespacer{height:150px}
+
+/* floating cluster + nav */
+.floatwrap{position:absolute;left:0;right:0;bottom:64px;z-index:30;padding:0 12px;pointer-events:none}
+.offers-pill{pointer-events:auto;margin:0 auto -12px;width:96px;background:#fff;border:1px solid #F8CBDA;color:var(--pink-deep);
+  font-weight:800;font-size:13px;border-radius:99px;padding:5px 0;display:flex;align-items:center;justify-content:center;gap:5px;box-shadow:var(--shadow-card);position:relative;z-index:2}
+.float-row{display:flex;gap:10px;align-items:stretch}
+.darkbar{pointer-events:auto;flex:1;background:var(--dark);border-radius:18px;padding:12px 14px;display:flex;align-items:center;gap:12px;box-shadow:var(--shadow-float);color:#fff;min-height:64px}
+.darkbar .ring{width:38px;height:38px;border-radius:50%;background:#2F333E;display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-size:18px}
+.darkbar b{font-size:15px;display:block;letter-spacing:-.01em}
+.darkbar span{font-size:12px;color:#AEB4C0;font-weight:600}
+.cartbtn{pointer-events:auto;background:var(--pink);border-radius:18px;min-width:118px;display:flex;align-items:center;gap:9px;padding:0 14px;color:#fff;box-shadow:0 12px 26px rgba(255,45,108,.45)}
+.cartbtn .thumb{width:36px;height:36px;border-radius:10px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:20px}
+.cartbtn b{font-size:16px;display:block;line-height:1.1}
+.cartbtn span{font-size:11.5px;font-weight:700;opacity:.95}
+.darkbar.hidden,.cartbtn.hidden{display:none}
+.nav{position:absolute;left:0;right:0;bottom:0;height:64px;background:#fff;border-top:1px solid var(--line);
+  display:grid;grid-template-columns:repeat(5,1fr);z-index:31}
+.nav button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:11px;font-weight:700;color:#6B7280}
+.nav button.active{color:var(--pink)}
+.nav .zh{width:24px;height:24px;border-radius:7px;background:var(--pink);color:#fff;font-weight:800;font-size:15px;display:flex;align-items:center;justify-content:center}
+.nav svg{width:22px;height:22px}
+.nav .active-tile{background:#E31E39;color:#fff;border-radius:12px;width:52px;height:40px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;box-shadow:0 6px 14px rgba(227,30,57,.4)}
+
+/* ============================================================
+   CART
+   ============================================================ */
+.hdr-plain{background:#fff;padding:40px 12px 10px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line)}
+.hdr-plain .mid{flex:1;min-width:0}
+.hdr-plain h3{font-size:18px;font-weight:800;display:flex;align-items:center;gap:4px}
+.hdr-plain .sub{font-size:12.5px;color:var(--sub);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.savebar{background:var(--green-bg);color:var(--green-ink);text-align:center;font-size:13.5px;font-weight:700;padding:9px 12px}
+.savebar b{font-weight:800}
+.cardsec{margin:12px;padding:16px;background:#fff;border-radius:18px;box-shadow:var(--shadow-card)}
+.rowline{display:flex;align-items:center;gap:12px}
+.cicon{width:42px;height:42px;border-radius:12px;background:#F1F3F5;display:flex;align-items:center;justify-content:center;font-size:20px;flex:0 0 auto;border:1px solid var(--line)}
+.cicon.green{background:#1F8A3D;color:#fff;border:none;font-size:18px}
+.cicon.amz{background:#232F3E;color:#fff;font-size:10px;font-weight:800;flex-direction:column;line-height:1}
+.cicon.amz i{font-style:normal;color:#FF9900;font-size:13px;margin-top:-2px}
+.grow{flex:1;min-width:0}
+.t-strong{font-size:15px;font-weight:800;line-height:1.3}
+.t-orange{color:var(--amber);font-weight:700;font-size:13.5px;margin-top:2px}
+.t-sub{color:var(--sub);font-size:13px;font-weight:600;margin-top:2px}
+.pill-ghost{border:1.5px solid var(--line);color:#A0A5B0;font-weight:800;border-radius:12px;padding:9px 18px;font-size:14px}
+.pill-outline{border:1.5px solid var(--pink);color:var(--pink);font-weight:800;border-radius:12px;padding:9px 20px;font-size:14px;background:#fff}
+.viewall{color:var(--ink);font-weight:800;font-size:13.5px;margin-top:8px;display:inline-flex;align-items:center;gap:3px}
+.deliv-h{display:flex;align-items:center;gap:12px}
+.deliv-h .clock{width:44px;height:44px;border-radius:50%;border:1.5px solid var(--ink);display:flex;align-items:center;justify-content:center}
+.deliv-h h4{font-size:17.5px;font-weight:800}
+.deliv-h p{font-size:13px;color:var(--sub);font-weight:600}
+.sched{border:1.5px solid #F3C892;background:#FFF9EF;color:#1D1D29;font-weight:800;border-radius:12px;padding:9px 14px;font-size:14px;display:flex;align-items:center;gap:7px}
+.citem{display:flex;gap:12px;padding:14px 0;border-bottom:1px solid #F0F1F4;align-items:flex-start}
+.citem:last-child{border-bottom:none}
+.citem .img{width:58px;height:58px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:28px;flex:0 0 auto;border:1px solid rgba(0,0,0,.04)}
+.citem .nm{font-size:15px;font-weight:700;line-height:1.3}
+.citem .un{font-size:12.5px;color:var(--sub);font-weight:600;margin-top:3px}
+.citem .right{display:flex;flex-direction:column;align-items:flex-end;gap:7px;flex:0 0 auto}
+.citem .prices{font-size:15px;font-weight:800;color:var(--green)}
+.citem .prices s{color:#9AA0AC;font-weight:600;margin-right:6px;font-size:13px}
+.removebtn{border:1.5px solid var(--line);border-radius:12px;padding:8px 16px;font-weight:800;color:#3F4451;font-size:14px}
+.stepper.sm{height:34px;border-radius:10px}
+.stepper.sm button{width:30px;height:34px;font-size:17px}
+.forgot{text-align:center;padding:14px 0 2px;font-size:14.5px;font-weight:700}
+.forgot a{color:#B01E5A;font-weight:800;text-decoration:none}
+/* progress */
+.prog-title{font-size:17px;font-weight:800}
+.progressbar{position:relative;height:52px;margin-top:16px}
+.progressbar .track{position:absolute;top:14px;left:2%;right:2%;height:5px;background:#E4E6EA;border-radius:99px}
+.progressbar .fill{position:absolute;top:14px;left:2%;height:5px;background:#1F8A3D;border-radius:99px;transition:width .4s}
+.pnode{position:absolute;top:0;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;width:86px}
+.pnode .n{width:32px;height:32px;border-radius:50%;background:#E9EBEF;color:#9AA0AC;display:flex;align-items:center;justify-content:center;font-size:14px;border:3px solid var(--bg)}
+.pnode.done .n{background:#1F8A3D;color:#fff}
+.pnode b{font-size:12px;margin-top:6px;color:#3F4451;text-align:center;line-height:1.15}
+.pnode span{font-size:10.5px;color:var(--faint);font-weight:700}
+.pnode.done b{color:#1F8A3D}
+.minicard{flex:0 0 128px}
+.minicard .pimg{height:100px;font-size:38px}
+.spons-h{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.spons-h .logo{width:40px;height:40px;border-radius:12px;background:#E4002B;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:10px}
+.spons-h b{font-size:16.5px;display:block}
+.spons-h span{font-size:12px;color:var(--sub);font-weight:600}
+/* bag + footer */
+.bagrow{margin:12px;background:#EAF6EC;border:1px solid #CBE7D2;border-radius:14px;padding:13px 14px;display:flex;align-items:center;gap:11px}
+.bagrow .cb{width:22px;height:22px;border-radius:6px;background:var(--pink);color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800}
+.bagrow .cb.off{background:#fff;border:2px solid #C6CBD4;color:transparent}
+.bagrow b{flex:1;font-size:14.5px;font-weight:700}
+.cartfoot{background:#fff;border-top:1px solid var(--line);padding:12px 14px calc(12px + env(safe-area-inset-bottom));display:flex;align-items:center;gap:10px}
+.cartfoot .topay{min-width:74px}
+.cartfoot .topay span{font-size:11.5px;color:var(--sub);font-weight:800;display:block}
+.cartfoot .topay b{font-size:22px;font-weight:800;letter-spacing:-.02em}
+.payonline{flex:1;border:1.5px solid var(--line);border-radius:14px;height:56px;font-weight:800;font-size:16px;background:#fff}
+.paycod{flex:1.25;background:var(--pink);color:#fff;border-radius:14px;height:56px;font-weight:800;font-size:15px;line-height:1.15;box-shadow:0 8px 20px rgba(255,45,108,.35)}
+.paycod small{display:block;font-size:11.5px;font-weight:700;opacity:.95}
+/* empty cart */
+.emptycart{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;color:#8A90A0}
+.emptycart .cup{font-size:64px;transform:rotate(-8deg)}
+.emptycart p{font-size:17px;font-weight:700;color:#8A90A0}
+
+/* ============================================================
+   COUPONS PAGE
+   ============================================================ */
+.pagehdr{background:#fff;padding:44px 14px 14px;display:flex;align-items:center;gap:12px}
+.pagehdr h2{font-size:20px;font-weight:800;flex:1}
+.havecode{border:1.5px solid var(--line);border-radius:12px;padding:10px 14px;font-weight:800;font-size:14px;background:#fff}
+.seg{margin:6px 14px;background:#E9EBEF;border-radius:99px;padding:4px;display:flex}
+.seg button{flex:1;border-radius:99px;padding:10px 0;font-weight:800;font-size:15.5px;color:#5A5F6B}
+.seg button.on{background:#fff;color:var(--ink);box-shadow:var(--shadow-card)}
+.segnote{text-align:center;font-size:12.5px;color:#8A90A0;font-weight:600;margin:6px 0 2px}
+.coupcard{margin:12px 14px;background:#fff;border-radius:18px;padding:16px;box-shadow:var(--shadow-card)}
+.coupcard .top{display:flex;gap:12px;align-items:flex-start}
+.badgeic{width:46px;height:46px;border-radius:12px;background:#F1F3F5;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+.badgeic .pct{width:28px;height:28px;background:#1F8A3D;border-radius:8px;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px}
+.coupcard h4{font-size:16.5px;font-weight:800;line-height:1.3}
+.codechip{border:1.5px solid var(--line);border-radius:9px;padding:7px 11px;font-weight:800;font-size:12.5px;color:#5A5F6B;letter-spacing:.03em}
+.knowmore{margin-left:auto;font-weight:800;font-size:14px;color:#3F4451;display:flex;align-items:center;gap:4px}
+.coupcard .foot{display:flex;align-items:center;margin-top:12px}
+.tncbox{font-size:12px;color:var(--sub);font-weight:600;line-height:1.5;margin-top:10px;display:none}
+.tncbox.open{display:block}
+.filterchips{display:flex;gap:9px;padding:10px 14px;overflow-x:auto}
+.fchip{border:1.5px solid var(--line);background:#fff;border-radius:12px;padding:9px 14px;font-weight:800;font-size:14px;display:flex;align-items:center;gap:7px;flex:0 0 auto}
+.fchip .em{font-size:15px}
+.payoff-logo{width:46px;height:46px;border-radius:12px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-size:11px}
+
+/* ============================================================
+   PAYMENT OPTIONS PAGE
+   ============================================================ */
+#s-payopts{background:var(--bg)}
+.paybar{margin:0;background:#E9F7EC;padding:12px 16px;display:flex;align-items:center;justify-content:space-between}
+.paybar b{color:#156A2E;font-size:16px;font-weight:800}
+.paybar b small{color:#1D1D29;font-weight:800;font-size:15px;margin-right:4px}
+.optrow{background:#fff;border-radius:16px;margin:8px 14px;padding:14px;display:flex;align-items:center;gap:12px;box-shadow:var(--shadow-card)}
+.optrow h5{font-size:15.5px;font-weight:800}
+.optrow p{font-size:12.5px;color:var(--sub);font-weight:600;margin-top:1px}
+.linktag{color:var(--pink);font-weight:800;font-size:14px;display:flex;align-items:center;gap:2px}
+.ineligible{color:#A6ABB5;font-weight:700;font-size:13px}
+.upiapps{display:flex;gap:18px;padding:4px 6px 2px}
+.upiapp{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#3F4451}
+.upiapp .lg{width:46px;height:46px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-size:15px;box-shadow:var(--shadow-card)}
+.newbadge{background:#1F8A3D;color:#fff;font-size:10px;font-weight:800;border-radius:6px;padding:2px 7px;letter-spacing:.03em}
+.plbanner{margin:8px 14px;border-radius:16px;background:linear-gradient(120deg,#7C3AED,#A855F7);color:#fff;padding:16px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.plbanner b{font-size:15.5px;line-height:1.35}
+.plbanner .plchip{background:#5B21B6;border-radius:12px;padding:9px 12px;font-weight:800;font-size:12px;line-height:1.1;text-align:center;box-shadow:0 6px 14px rgba(0,0,0,.25)}
+.bankgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:2px}
+.bank{display:flex;flex-direction:column;align-items:center;gap:7px;font-size:11.5px;font-weight:700;color:#3F4451;text-align:center}
+.bank .lg{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-size:13px}
+.radio{width:22px;height:22px;border-radius:50%;border:2px solid #C6CBD4;flex:0 0 auto}
+.radio.on{border-color:var(--pink);background:radial-gradient(circle,var(--pink) 0 45%,transparent 50%)}
+.morelink{display:flex;align-items:center;gap:8px;color:var(--pink);font-weight:800;font-size:14px;padding:4px 2px}
+
+/* ============================================================
+   PROCESSING / MAP / ADDRESS FORM / TRACKING
+   ============================================================ */
+#s-processing{background:#fff}
+.proc-body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:0 30px;text-align:center}
+.proc-orb{width:104px;height:104px;border-radius:50%;background:radial-gradient(circle at 32% 28%,#2FA85C,#157A3C);
+  display:flex;align-items:center;justify-content:center;font-size:44px;margin-bottom:22px;position:relative}
+.proc-orb::after{content:'';position:absolute;inset:-12px;border-radius:50%;border:3px solid rgba(31,138,61,.25);border-top-color:#1F8A3D;animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.proc-body h2{font-size:26px;font-weight:800;letter-spacing:-.02em}
+.proc-body p{font-size:16px;color:#8A90A0;font-weight:600}
+.proc-note{background:#F6EDFC;padding:20px 26px calc(22px + env(safe-area-inset-bottom));font-size:15px;color:#2E1065;font-weight:600;text-align:center;line-height:1.5}
+.proc-note b{font-weight:800}
+
+#s-map .mapwrap{flex:1;position:relative;background:#ECEAE3;overflow:hidden}
+.map-search{position:absolute;top:96px;left:16px;right:16px;z-index:5}
+.map-tt{position:absolute;left:50%;top:38%;transform:translate(-50%,-130%);background:#15161C;color:#fff;border-radius:12px;padding:10px 14px;text-align:center;z-index:4;width:280px}
+.map-tt b{font-size:14.5px;display:block}
+.map-tt span{font-size:12px;color:#C8CCD6;font-weight:600}
+.map-tt::after{content:'';position:absolute;left:50%;bottom:-7px;transform:translateX(-50%);border:8px solid transparent;border-top-color:#15161C;border-bottom:none}
+.map-pin{position:absolute;left:50%;top:38%;transform:translate(-50%,-10%);z-index:4;text-align:center}
+.map-pin .halo{position:absolute;left:50%;top:44px;transform:translate(-50%,-50%);width:130px;height:130px;border-radius:50%;background:rgba(59,130,246,.14);border:1px solid rgba(59,130,246,.3);z-index:-1}
+.locfab{position:absolute;right:14px;bottom:16px;width:46px;height:46px;border-radius:14px;background:#fff;box-shadow:var(--shadow-card);display:flex;align-items:center;justify-content:center;z-index:5}
+.map-foot{background:#fff;padding:18px 16px calc(18px + env(safe-area-inset-bottom));border-radius:20px 20px 0 0;box-shadow:0 -8px 24px rgba(20,20,43,.08)}
+.map-foot h2{font-size:22px;font-weight:800}
+.map-foot p{font-size:14.5px;color:var(--sub);font-weight:600;margin:4px 0 16px}
+
+.field{border:1.5px solid var(--line);border-radius:14px;height:58px;display:flex;align-items:center;padding:0 16px;margin:0 16px 14px;background:#fff}
+.field input{border:none;outline:none;flex:1;font-size:15.5px;font-weight:600;color:var(--ink);background:transparent}
+.field input::placeholder{color:#A6ABB5;font-weight:600}
+.field .prefix{font-weight:800;margin-right:10px;padding-right:10px;border-right:1.5px solid var(--line)}
+.formsec{font-size:19px;font-weight:800;margin:20px 16px 12px}
+.labelchips{display:flex;gap:10px;margin:0 16px}
+.lchip{border:1.5px solid var(--line);border-radius:13px;padding:11px 18px;font-weight:800;font-size:14.5px;color:#6E7280;display:flex;align-items:center;gap:7px;background:#fff}
+.lchip.on{border-color:var(--ink);color:var(--ink);background:#F7F5FB}
+.map-thumb{margin:8px 16px 0;border-radius:16px;overflow:hidden;height:130px;position:relative;border:1px solid var(--line)}
+.addr-preview{display:flex;align-items:center;gap:10px;margin:14px 16px;padding-bottom:14px;border-bottom:1.5px dashed #D7D9E0}
+.addr-preview h4{font-size:17px;font-weight:800}
+.addr-preview p{font-size:13px;color:var(--sub);font-weight:600}
+.changebtn{border:1.5px solid var(--pink);color:var(--pink);border-radius:12px;padding:8px 14px;font-weight:800;font-size:14px;margin-left:auto;background:#fff}
+.saveaddr{margin:22px 16px calc(16px + env(safe-area-inset-bottom))}
+
+#s-track .trhead{background:linear-gradient(180deg,var(--lav-1),var(--lav-2));padding:44px 16px 16px}
+#s-track .trhead.done{background:linear-gradient(180deg,#E4F5E8,#D2EEDA)}
+.trhead h2{font-size:22px;font-weight:800;letter-spacing:-.02em}
+.trhead p{font-size:13px;font-weight:600;color:#4A4462;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ontime{display:inline-flex;align-items:center;gap:5px;background:#fff;border-radius:99px;padding:5px 11px;font-size:12px;font-weight:800;color:#156A2E;margin-top:10px}
+.trmap{margin:14px;border-radius:18px;overflow:hidden;position:relative;border:1px solid var(--line);background:#ECEAE3}
+.rider{position:absolute;font-size:26px;offset-path:path('M 40 150 C 120 60, 210 190, 330 70');offset-rotate:0deg;animation:ride 7s ease-in-out infinite alternate;z-index:3}
+@keyframes ride{from{offset-distance:0%}to{offset-distance:100%}}
+.timeline{padding:4px 4px}
+.tl-item{display:flex;gap:14px;position:relative;padding-bottom:22px}
+.tl-item:last-child{padding-bottom:0}
+.tl-item .dot{width:24px;height:24px;border-radius:50%;background:#E4E6EA;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;flex:0 0 auto;z-index:1}
+.tl-item.done .dot{background:#1F8A3D}
+.tl-item.now .dot{background:#fff;border:6px solid var(--pink)}
+.tl-item .ln{position:absolute;left:11px;top:24px;bottom:-2px;width:2.5px;background:#E4E6EA}
+.tl-item.done .ln{background:#1F8A3D}
+.tl-item:last-child .ln{display:none}
+.tl-item b{font-size:15px;font-weight:800;color:#A6ABB5}
+.tl-item.done b,.tl-item.now b{color:var(--ink)}
+.tl-item span{display:block;font-size:12.5px;color:var(--faint);font-weight:600;margin-top:1px}
+.partner{display:flex;align-items:center;gap:12px}
+.partner .av{width:48px;height:48px;border-radius:50%;background:#EFE8FB;display:flex;align-items:center;justify-content:center;font-size:24px;flex:0 0 auto}
+.pbtn{width:44px;height:44px;border-radius:50%;border:1.5px solid var(--line);display:flex;align-items:center;justify-content:center;background:#fff}
+.ratechips{display:flex;gap:8px;margin-top:12px}
+.rstar{width:44px;height:44px;border-radius:12px;border:1.5px solid var(--line);background:#fff;display:flex;align-items:center;justify-content:center;font-size:20px}
+.rstar.on{background:#FFF7E0;border-color:#F3C892}
+
+/* ============================================================
+   SEARCH SCREEN
+   ============================================================ */
+#s-search{background:#fff}
+.srch-hdr{padding:44px 14px 12px;display:flex;gap:10px;align-items:center;border-bottom:1px solid var(--line)}
+.srch-hdr .searchbar{height:48px;box-shadow:none;background:#F4F5F7;border:1.5px solid var(--line)}
+.srch-hdr input{border:none;outline:none;background:transparent;flex:1;font-size:15.5px;font-weight:600}
+.srow{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid #F0F1F4}
+.srow .img{width:52px;height:52px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:26px;border:1px solid rgba(0,0,0,.04);flex:0 0 auto}
+.srow b{font-size:14.5px;display:block;line-height:1.3}
+.srow span{font-size:12px;color:var(--sub);font-weight:600}
+.srow .pr{font-weight:800;font-size:15px;margin-top:2px}
+
+/* ============================================================
+   OVERLAY + BOTTOM SHEETS
+   ============================================================ */
+#overlay{position:absolute;inset:0;z-index:80;background:rgba(16,16,25,.55);opacity:0;pointer-events:none;transition:opacity .22s;display:flex;align-items:flex-end}
+#overlay.open{opacity:1;pointer-events:auto}
+#sheet{width:100%;background:#fff;border-radius:24px 24px 0 0;max-height:88%;overflow-y:auto;
+  transform:translateY(60px);transition:transform .26s cubic-bezier(.2,.8,.3,1);padding-bottom:env(safe-area-inset-bottom)}
+#overlay.open #sheet{transform:none}
+.grabber{width:44px;height:5px;border-radius:99px;background:#D7D9E0;margin:10px auto 2px}
+.sheet-pad{padding:18px 18px 20px}
+.sheet-title{font-size:22px;font-weight:800;letter-spacing:-.02em}
+.sheet-sub{font-size:15px;color:#5A5F6B;font-weight:600;margin-top:4px}
+.sheet-x{position:absolute;right:16px;top:16px}
+.payrow{display:flex;align-items:center;gap:13px;padding:16px 0}
+.paylogo{width:46px;height:46px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-weight:800;box-shadow:var(--shadow-card);border:1px solid var(--line);flex:0 0 auto;background:#fff}
+.checkmark{width:26px;height:26px;border-radius:50%;background:var(--pink);color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px}
+.addrrow{display:flex;gap:13px;padding:15px 2px;border-bottom:1.5px dashed #E4E6EA;align-items:flex-start}
+.addrrow:last-child{border-bottom:none}
+.addrrow .ic{flex:0 0 auto;margin-top:2px}
+.addrrow h5{font-size:16.5px;font-weight:800;display:flex;align-items:center;gap:8px}
+.addrrow h5 .selchip{background:#DFF0E4;color:#156A2E;font-size:11.5px;font-weight:800;border-radius:7px;padding:3px 8px}
+.addrrow h5 .dist{color:#8A90A0;font-size:12.5px;font-weight:700}
+.addrrow p{font-size:13.5px;color:var(--sub);font-weight:600;line-height:1.45;margin-top:3px}
+.addnew{border:1.5px solid var(--line);border-radius:16px;padding:16px;display:flex;align-items:center;gap:10px;margin:14px 0 20px;box-shadow:var(--shadow-card)}
+.addnew b{color:var(--pink);font-size:17px;font-weight:800;flex:1;text-align:left}
+.how-hero{width:120px;height:120px;margin:16px auto 8px;border-radius:28px;background:linear-gradient(135deg,#F3E8FF,#E9D5FF);display:flex;align-items:center;justify-content:center;font-size:56px}
+.howrow{background:#F4F5F7;border-radius:14px;padding:14px;display:flex;gap:12px;align-items:center;margin-top:10px}
+.howrow .em{font-size:22px;flex:0 0 auto;color:#6D28D9}
+.howrow p{font-size:14px;font-weight:600;color:#3F4451;line-height:1.45}
+.failorb{width:120px;height:120px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#FFD9C2,#FFB98F);margin:22px auto 14px;display:flex;align-items:center;justify-content:center}
+.failorb .inner{width:76px;height:76px;border-radius:50%;background:linear-gradient(160deg,#FF8A3C,#F4511E);color:#fff;font-size:38px;font-weight:800;display:flex;align-items:center;justify-content:center}
+.failtitle{color:#E56A00;font-size:24px;font-weight:800;text-align:center}
+.failsub{font-size:19px;font-weight:700;text-align:center;line-height:1.45;margin:14px 20px 6px;color:#2A2B36}
+.notnow{display:block;margin:16px auto 8px;font-weight:800;font-size:17px;color:#3F4451}
+.orderrow{display:flex;align-items:center;gap:13px;padding:13px 0}
+.orderrow .ic{width:52px;height:52px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:24px;flex:0 0 auto}
+.orderrow b{font-size:19px;display:block;letter-spacing:-.01em}
+.orderrow span{font-size:14px;color:var(--sub);font-weight:600}
+.fillbtn{position:relative;overflow:hidden}
+.fillbtn .fillspan{position:absolute;inset:0;width:0;background:rgba(0,0,0,.22)}
+.fillbtn.filling .fillspan{width:100%;transition:width 1.6s linear}
+.cancelorder{display:block;margin:14px auto 6px;color:var(--pink);font-weight:800;font-size:17px}
+/* floating-label coupon input */
+.flt{position:relative;margin:22px 0 18px}
+.flt input{width:100%;height:60px;border:1.8px solid var(--line);border-radius:14px;padding:0 16px;font-size:16px;font-weight:700;outline:none;caret-color:var(--pink)}
+.flt input:focus{border-color:var(--ink)}
+.flt label{position:absolute;top:-8px;left:14px;background:#fff;padding:0 6px;font-size:12.5px;font-weight:700;color:#8A90A0}
+.flt .err{color:#D92D20;font-size:12.5px;font-weight:700;margin-top:7px;display:none}
+.flt.bad input{border-color:#D92D20}
+.flt.bad .err{display:block}
+.billrow{display:flex;justify-content:space-between;align-items:center;padding:9px 0;font-size:14.5px;font-weight:700;color:#3F4451}
+.billrow b{font-weight:800;color:var(--ink)}
+.billrow .free{color:var(--green);font-weight:800}
+.billrow .free s{color:#9AA0AC;font-weight:600;margin-right:6px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="phone" id="phone">
+
+  <!-- STATUS BAR -->
+  <div class="statusbar">
+    <span id="sb-time">12:53</span>
+    <span class="sb-r">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M6.5 7.5 17.5 16.5M17.5 7.5 6.5 16.5M12 3v18" stroke="#1D1D29" stroke-width="1.6"/></svg>
+      <span>5G</span>
+      <svg viewBox="0 0 24 24" fill="#1D1D29"><rect x="3" y="14" width="3" height="6" rx="1"/><rect x="8" y="11" width="3" height="9" rx="1"/><rect x="13" y="8" width="3" height="12" rx="1"/><rect x="18" y="5" width="3" height="15" rx="1"/></svg>
+      <svg viewBox="0 0 28 14" width="24"><rect x="1" y="1" width="23" height="12" rx="3.5" fill="none" stroke="#1D1D29" stroke-width="1.6"/><rect x="3" y="3" width="12" height="8" rx="2" fill="#1D1D29"/><rect x="25.5" y="4.5" width="2" height="5" rx="1" fill="#1D1D29"/></svg>
+      <b style="font-size:11px">55</b>
+    </span>
+  </div>
+
+  <!-- ======================= HOME ======================= -->
+  <section class="screen on" id="s-home">
+    <div class="scroll" id="homeScroll">
+      <div class="hdr-lav">
+        <div class="eta-row">
+          <div>
+            <div class="eta"><span class="bolt">&#9889;</span> <span id="etaMin">4 minutes</span></div>
+            <div class="addr-line" data-act="sheet-addr"><b id="hAddrLabel">Pg</b> - <span class="txt" id="hAddrLine">204, Krishna Boys PG, Shastri Nagar, Meerut...</span>
+              <svg class="chev" viewBox="0 0 24 24" fill="none"><path d="m6 9 6 6 6-6" stroke="#1D1D29" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+          </div>
+          <div class="avatar"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8.2" r="3.4" stroke="#1D1D29" stroke-width="2"/><path d="M4.8 19.4c1.5-3.2 4.2-4.8 7.2-4.8s5.7 1.6 7.2 4.8" stroke="#1D1D29" stroke-width="2" stroke-linecap="round"/></svg></div>
+        </div>
+        <div class="apptabs">
+          <div class="apptab active"><span class="wordmark">zepto</span></div>
+          <div class="apptab" data-act="oos" style="color:#2563EB">Summer<br>Store &#10024;</div>
+          <div class="apptab" data-act="oos" style="color:#111827">Super<br>Mall.</div>
+          <div class="apptab tab-cafe" data-act="oos">cafe<span class="badge">From &#8377;29</span></div>
+        </div>
+      </div>
+
+      <div class="home-white">
+        <div class="search-row">
+          <div class="searchbar" data-act="search-open">
+            <svg viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="#1D1D29" stroke-width="2.2"/><path d="m20 20-3.2-3.2" stroke="#1D1D29" stroke-width="2.2" stroke-linecap="round"/></svg>
+            <span class="ph">Search for "<span id="phWord">Biryani Paglu</span>"</span>
+          </div>
+          <div class="ad-tile" data-act="oos">Hair care Sunday &#128135;</div>
+        </div>
+        <div class="cat-row" id="catRow">
+          <div class="cat active" data-cat="all"><span class="em">&#128717;&#65039;</span>All</div>
+          <div class="cat" data-cat="match"><span class="em">&#9917;</span>Match Day</div>
+          <div class="cat" data-cat="fresh"><span class="em">&#127817;</span>Fresh</div>
+          <div class="cat" data-cat="elec"><span class="em">&#127911;</span>Electronics</div>
+          <div class="cat" data-cat="fashion"><span class="em">&#128085;</span>Fashion</div>
+        </div>
+      </div>
+
+      <div class="home-body">
+        <div class="fees">
+          <div class="fees-tiles">
+            <div class="fee-tile"><span class="em">&#128717;&#65039;</span><div class="big">&#8377;0 FEES</div></div>
+            <div class="fee-tile"><span class="em">&#129689;</span><div class="big">EVERYDAY <i>LOW PRICES</i></div></div>
+          </div>
+          <div class="checks">
+            <div class="check"><span class="dot">&#10003;</span>&#8377;0 Handling Fee</div>
+            <div class="check"><span class="dot">&#10003;</span>&#8377;0 Delivery Fee*</div>
+            <div class="check"><span class="dot">&#10003;</span>&#8377;0 Rain &amp; Surge Fee</div>
+          </div>
+          <div class="tnc">*T&amp;C Apply. Above specific minimum order value</div>
+        </div>
+
+        <div class="refer">
+          <div>
+            <h3>Got a referral code?<br>Claim your <span>FREE Gift!</span></h3>
+            <button class="enter" data-act="oos">Enter Code
+              <svg class="chev" viewBox="0 0 24 24" fill="none"><path d="m9 6 6 6-6 6" stroke="#1D1D29" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </div>
+          <div class="arts">&#9749;&#127851;&#129386;</div>
+        </div>
+
+        <div class="fresh-head">
+          <div class="fresh-title">FRESH <span class="hl">@&#8377;5</span></div>
+          <div class="fresh-sub">Handpicked daily essentials</div>
+        </div>
+        <div class="circles">
+          <div class="circle z5 selected"><div class="ic">&#8377;5</div><span>&#8377;5 Zone</span></div>
+          <div class="circle" data-act="oos"><div class="ic">&#129477;</div><span>Veggies</span></div>
+          <div class="circle" data-act="oos"><div class="ic">&#127818;</div><span>Fruits</span></div>
+          <div class="circle" data-act="oos"><div class="ic">&#127823;</div><span>New Launches</span></div>
+          <div class="circle" data-act="oos"><div class="ic">&#128144;</div><span>Bouquets</span></div>
+          <div class="circle" data-act="oos"><div class="ic">&#129371;</div><span>Dairy</span></div>
+        </div>
+        <div class="hscroll" id="fresh5Row"></div>
+        <div style="padding:16px"><button class="btn btn-ghost btn-big" style="color:#1D1D29;font-size:15px" data-act="see-all" data-key="fresh">See all &nbsp;&#9656;</button></div>
+
+        <div class="h-title" style="display:flex;align-items:center;justify-content:space-between;padding-right:16px">Your Kits <span style="font-size:11px;font-weight:800;background:#EFE8FB;color:#5B21B6;border-radius:8px;padding:4px 9px;letter-spacing:.04em">ONE-TAP CARTS &#9889;</span></div>
+        <div class="t-sub" style="padding:0 16px;margin-top:-2px">Whole carts, built once. Ordered in one tap.</div>
+        <div class="hscroll" id="kitsRail" style="padding-top:12px"></div>
+
+        <div class="biryani">
+          <div class="wd">W&nbsp;O&nbsp;R&nbsp;L&nbsp;D</div>
+          <h2>BIRYANI<br>DAY</h2>
+          <div class="pot">&#127858;</div>
+          <div class="b-tiles">
+            <div class="b-tile" data-act="oos"><span class="em">&#127835;</span>Biryani Special<span class="b-price"><s>&#8377;165</s>&#8377;149</span></div>
+            <div class="b-tile" data-act="oos"><span class="em">&#127834;</span>Biryani &amp; Pulav Rice</div>
+            <div class="b-tile" data-act="oos"><span class="em">&#129387;</span>Biryani Kits</div>
+            <div class="b-tile" data-act="oos"><span class="em">&#129476;</span>Spices &amp; More</div>
+            <div class="b-tile" data-act="oos"><span class="em">&#127830;</span>Meat &amp; Paneer</div>
+            <div class="b-tile" data-act="oos"><span class="em">&#129472;</span>Raita Corner</div>
+          </div>
+        </div>
+
+        <div class="h-title">Coupons &amp; Offers</div>
+        <div class="chipscroll">
+          <div class="cchip"><div class="b">%</div><h5>FLAT &#8377;50 OFF</h5><p>above &#8377;2099</p></div>
+          <div class="cchip"><div class="b">%</div><h5>FLAT &#8377;100 OFF</h5><p>above &#8377;2699</p></div>
+          <div class="cchip"><div class="b">%</div><h5>FLAT &#8377;150 OFF</h5><p>above &#8377;3299</p></div>
+          <div class="cchip"><div class="b">%</div><h5>FLAT &#8377;200 OFF</h5><p>above &#8377;3899</p></div>
+        </div>
+        <div class="bhim">
+          <div class="bhimcard" data-act="oos"><div class="tri"></div><div><b>Flat &#8377;50 cashback with BHIM app</b><span>Valid on orders above &#8377;99</span></div>
+            <svg class="chev" viewBox="0 0 24 24" fill="none"><path d="m9 6 6 6-6 6" stroke="#6E7280" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        </div>
+
+        <div class="deals-head"><h2>DEALS STARTING AT &#8377;9</h2><p>Add Any 10 Items</p></div>
+        <div class="hscroll" id="dealsRow"></div>
+        <div style="padding:8px 16px 0"><button class="btn btn-ghost btn-big" style="color:#1D1D29;font-size:15px;height:48px" data-act="see-all" data-key="deals">See all deals &nbsp;&#9656;</button></div>
+
+        <div class="payday">
+          <h2>PAYDAY</h2>
+          <div class="sub">SAVINGS FEST &middot; ENDS 5TH JULY</div>
+          <div class="pd-grid">
+            <div class="pd-tile"><span class="em">&#127859;</span><b>Cooking Essentials</b><span>UP TO 70% OFF</span></div>
+            <div class="pd-tile"><span class="em">&#129532;</span><b>Personal Care</b><span>UP TO 85% OFF</span></div>
+            <div class="pd-tile"><span class="em">&#129529;</span><b>Cleaning Needs</b><span>UP TO 80% OFF</span></div>
+            <div class="pd-tile"><span class="em">&#129374;</span><b>Breakfast &amp; Instant</b><span>STARTS AT &#8377;10</span></div>
+            <div class="pd-tile"><span class="em">&#9748;</span><b>Monsoon Essentials</b><span>UP TO 60% OFF</span></div>
+            <div class="pd-tile"><span class="em">&#128170;</span><b>Protein &amp; Fitness</b><span>UP TO 45% OFF</span></div>
+          </div>
+        </div>
+
+        <div class="h-title">Buy Again</div>
+        <div class="circles" style="padding-top:6px">
+          <div class="circle selected"><div class="ic" style="background:#FDEFF4">&#10084;&#65039;</div><span>All Items</span></div>
+          <div class="circle" data-act="oos"><div class="ic">&#9749;</div><span>Zepto Cafe</span></div>
+          <div class="circle" data-act="oos"><div class="ic">&#129382;</div><span>Fruits &amp; Vegetables</span></div>
+          <div class="circle" data-act="oos"><div class="ic">&#129371;</div><span>Dairy Products</span></div>
+          <div class="circle" data-act="oos"><div class="ic">&#129380;</div><span>Snacks &amp; Drinks</span></div>
+        </div>
+        <div class="grid3" id="feedGrid"></div>
+        <div class="homespacer"></div>
+      </div>
+    </div>
+
+    <!-- floating cluster -->
+    <div class="floatwrap" id="floatwrap">
+      <button class="offers-pill" data-act="open-offers">Offers
+        <svg class="chev" id="offersChev" viewBox="0 0 24 24" fill="none" style="width:14px;height:14px"><path d="m6 14 6-6 6 6" stroke="#DE1257" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="float-row">
+        <div class="darkbar" id="darkbar" data-act="go-cart">
+          <div class="ring" id="dbIcon">&#127991;&#65039;</div>
+          <div class="grow"><b id="dbTitle">Unlock free delivery</b><span id="dbSub">Shop for &#8377;99</span></div>
+        </div>
+        <button class="cartbtn hidden" id="cartbtn" data-act="go-cart">
+          <span class="thumb" id="cartThumb">&#129382;</span>
+          <span style="text-align:left"><b>Cart</b><span id="cartCount">0 items</span></span>
+        </button>
+      </div>
+    </div>
+
+    <nav class="nav">
+      <button class="active"><span class="zh">z</span>Home</button>
+      <button data-act="oos"><svg viewBox="0 0 24 24" fill="none"><rect x="4" y="4" width="7" height="7" rx="2" stroke="currentColor" stroke-width="2"/><rect x="13" y="4" width="7" height="7" rx="2" stroke="currentColor" stroke-width="2"/><rect x="4" y="13" width="7" height="7" rx="2" stroke="currentColor" stroke-width="2"/><path d="M16.5 13v7M13 16.5h7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Categories</button>
+      <button data-act="open-kits"><span style="font-size:20px;line-height:1">&#129530;</span>Your Kits</button>
+      <button data-act="oos"><span style="font-size:19px;line-height:1">&#129380;</span>Cafe</button>
+      <button data-act="oos"><span class="active-tile">Active</span></button>
+    </nav>
+  </section>
+
+  <!-- ======================= CART ======================= -->
+  <section class="screen" id="s-cart">
+    <div class="hdr-plain">
+      <button class="icbtn" data-act="back"><svg viewBox="0 0 24 24" fill="none"><path d="m14 6-6 6 6 6" stroke="#1D1D29" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <div class="mid" data-act="sheet-addr">
+        <h3><span id="cAddrLabel">Pg</span>
+          <svg class="chev" viewBox="0 0 24 24" fill="none"><path d="m6 9 6 6 6-6" stroke="#1D1D29" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></h3>
+        <div class="sub" id="cAddrLine">204, Krishna Boys PG, Shastri Nagar, Meerut...</div>
+      </div>
+      <button class="icbtn" data-act="oos"><svg viewBox="0 0 24 24" fill="none"><path d="M12 20s-7-4.4-9.2-8.6C1.2 8.4 3 5 6.4 5c2 0 3.6 1.1 4.4 2.6l1.2 2 1.2-2C14 6.1 15.6 5 17.6 5 21 5 22.8 8.4 21.2 11.4 19 15.6 12 20 12 20Z" stroke="#1D1D29" stroke-width="2" stroke-linejoin="round"/></svg></button>
+    </div>
+    <div class="savebar" id="savebar">Yay! You <b>saved &#8377;197</b> on this order &nbsp;&#8964;</div>
+    <div class="scroll" id="cartScroll"></div>
+    <div class="bagrow" id="bagrow" data-act="toggle-bag">
+      <span class="cb" id="bagCb">&#10003;</span>
+      <b>I don&rsquo;t need a bag &nbsp;&#127811;</b>
+      <svg class="chev" viewBox="0 0 24 24" fill="none" data-act="sheet-how"><path d="m9 6 6 6-6 6" stroke="#1D1D29" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <div class="cartfoot" id="cartfoot">
+      <div class="topay"><span>To Pay</span><b id="footPay">&#8377;102</b></div>
+      <button class="payonline" data-act="pay-online">Pay Online</button>
+      <button class="paycod" data-act="pay-cod">Pay Cash/UPI<small>(on delivery)</small></button>
+    </div>
+  </section>
+
+  <!-- ======================= COUPONS ======================= -->
+  <section class="screen" id="s-coupons">
+    <div class="pagehdr">
+      <button class="icbtn" data-act="back"><svg viewBox="0 0 24 24" fill="none"><path d="m14 6-6 6 6 6" stroke="#1D1D29" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <h2>Coupon &amp; Offers</h2>
+      <button class="havecode" data-act="sheet-code">Have a code?</button>
+    </div>
+    <div class="seg">
+      <button id="segCoup" class="on" data-act="seg-coupons">Coupons</button>
+      <button id="segPay" data-act="seg-payoffers">Payment Offers</button>
+    </div>
+    <div class="segnote">Note: You can now apply coupons and payment offers together.</div>
+    <div class="scroll" id="couponsBody"></div>
+  </section>
+
+  <!-- ======================= PAYMENT OPTIONS ======================= -->
+  <section class="screen" id="s-payopts">
+    <div class="pagehdr" style="padding-bottom:10px">
+      <button class="icbtn" data-act="back"><svg viewBox="0 0 24 24" fill="none"><path d="m14 6-6 6 6 6" stroke="#1D1D29" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <div class="grow">
+        <h2 style="font-size:19px">Payment Options</h2>
+        <div class="sub" style="font-size:12px;color:#6E7280;font-weight:600">Delivering to <b id="pAddrLabel">Pg</b> - <span id="pAddrLine">204, Krishna Boys PG, Shastri Naga...</span></div>
+      </div>
+    </div>
+    <div class="paybar"><b><small>To Pay:</small> <span id="payoptsAmt">&#8377;102</span></b><button class="linkpink" data-act="sheet-bill">View Bill</button></div>
+    <div class="scroll" id="payoptsBody"></div>
+  </section>
+
+  <!-- ======================= PROCESSING ======================= -->
+  <section class="screen" id="s-processing">
+    <div class="proc-body">
+      <div class="proc-orb">&#128717;&#65039;</div>
+      <h2>Payment Processing..</h2>
+      <p>Connecting with your bank</p>
+    </div>
+    <div class="proc-note"><b>Note</b> - Please do not close the app or press the back button till the transaction is complete</div>
+  </section>
+
+  <!-- ======================= MAP / SELECT LOCATION ======================= -->
+  <section class="screen" id="s-map">
+    <div class="pagehdr" style="position:relative;z-index:6">
+      <button class="icbtn" data-act="back"><svg viewBox="0 0 24 24" fill="none"><path d="m14 6-6 6 6 6" stroke="#1D1D29" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <h2>Select Your Location</h2>
+    </div>
+    <div class="field" style="margin:2px 16px 12px;position:relative;z-index:6;box-shadow:var(--shadow-card)">
+      <svg viewBox="0 0 24 24" fill="none" style="width:19px;height:19px;margin-right:10px"><circle cx="11" cy="11" r="7" stroke="#6E7280" stroke-width="2.2"/><path d="m20 20-3.2-3.2" stroke="#6E7280" stroke-width="2.2" stroke-linecap="round"/></svg>
+      <input placeholder="Search for apartment, street name..." data-act-focus="oos">
+    </div>
+    <div class="mapwrap">
+      <div id="bigmap" style="position:absolute;inset:0"></div>
+      <div class="map-tt"><b>Order will be delivered here</b><span>Place the pin to your exact location</span></div>
+      <div class="map-pin">
+        <span class="halo"></span>
+        <svg width="46" height="58" viewBox="0 0 46 58"><ellipse cx="23" cy="52" rx="9" ry="4" fill="#B399E8"/><path d="M23 50V26" stroke="#7A3BEF" stroke-width="5" stroke-linecap="round"/><circle cx="23" cy="16" r="13" fill="#E7145E"/><circle cx="18.5" cy="11.5" r="4" fill="#FF6FA5" opacity=".8"/></svg>
+      </div>
+      <button class="locfab" data-act="oos"><svg viewBox="0 0 24 24" fill="none" style="width:22px;height:22px"><circle cx="12" cy="12" r="3.4" fill="#5B21B6"/><circle cx="12" cy="12" r="7.4" stroke="#5B21B6" stroke-width="2"/><path d="M12 1.8v4M12 18.2v4M1.8 12h4M18.2 12h4" stroke="#5B21B6" stroke-width="2" stroke-linecap="round"/></svg></button>
+    </div>
+    <div class="map-foot">
+      <h2>Shastri Nagar</h2>
+      <p>Sector 4, Shastri Nagar, Meerut, Uttar Pradesh</p>
+      <button class="btn btn-pink btn-big" data-act="confirm-loc">Confirm Location</button>
+    </div>
+  </section>
+
+  <!-- ======================= ADD ADDRESS DETAILS ======================= -->
+  <section class="screen" id="s-addr">
+    <div class="pagehdr">
+      <button class="icbtn" data-act="back"><svg viewBox="0 0 24 24" fill="none"><path d="m14 6-6 6 6 6" stroke="#1D1D29" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <h2>Add Address Details</h2>
+    </div>
+    <div class="scroll">
+      <div class="map-thumb"><div id="minimap" style="position:absolute;inset:0"></div></div>
+      <div class="addr-preview">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 21s-6.5-5.3-6.5-10.2A6.5 6.5 0 0 1 12 4.3a6.5 6.5 0 0 1 6.5 6.5C18.5 15.7 12 21 12 21Z" stroke="#1D1D29" stroke-width="2"/><circle cx="12" cy="10.8" r="2.3" stroke="#1D1D29" stroke-width="2"/></svg>
+        <div><h4>Shastri Nagar</h4><p>Sector 4, Shastri Nagar, Meerut, Uttar Pradesh</p></div>
+        <button class="changebtn" data-act="back">Change</button>
+      </div>
+      <div class="formsec">Add address</div>
+      <div class="field"><input id="fHouse" placeholder="House No. &amp; Floor"></div>
+      <div class="field"><input id="fBuilding" placeholder="Building &amp; Block No. (Optional)"></div>
+      <div class="field"><input id="fLandmark" placeholder="Landmark &amp; Area Name (Optional)"></div>
+      <div class="formsec">Add address label</div>
+      <div class="labelchips" id="labelChips">
+        <button class="lchip" data-label="Home">&#8962; Home</button>
+        <button class="lchip" data-label="Work">&#127970; Work</button>
+        <button class="lchip on" data-label="Other">&#128205; Other</button>
+      </div>
+      <div class="formsec">Receiver details</div>
+      <div class="field"><input id="fName" placeholder="Receiver&rsquo;s Name">
+        <svg viewBox="0 0 24 24" fill="none" style="width:20px;height:20px"><rect x="3" y="4" width="18" height="16" rx="3" stroke="#1D1D29" stroke-width="2"/><circle cx="9.4" cy="10.4" r="2" stroke="#1D1D29" stroke-width="1.8"/><path d="M6 16.4c.8-1.6 2-2.3 3.4-2.3s2.6.7 3.4 2.3M15.5 9.5h3.4M15.5 13h3.4" stroke="#1D1D29" stroke-width="1.8" stroke-linecap="round"/></svg></div>
+      <div class="field"><span class="prefix">+91</span><input id="fPhone" placeholder="Receiver&rsquo;s Phone Number" inputmode="numeric" maxlength="10"></div>
+      <div class="saveaddr"><button class="btn btn-big" id="saveAddrBtn" data-act="save-addr" disabled>SAVE ADDRESS</button></div>
+    </div>
+  </section>
+
+  <!-- ======================= TRACKING ======================= -->
+  <section class="screen" id="s-track">
+    <div class="trhead" id="trhead">
+      <h2 id="trTitle">Arriving in 5 minutes</h2>
+      <p id="trAddr">Delivering to Pg &middot; 204, Krishna Boys PG, Shastri Nagar, Meerut</p>
+      <span class="ontime">&#9889; On time &middot; Superfast delivery</span>
+    </div>
+    <div class="scroll">
+      <div class="trmap" id="trmapwrap"><div id="trmap"></div><span class="rider" id="riderEmoji">&#128757;</span></div>
+      <div class="cardsec"><div class="timeline" id="timeline"></div></div>
+      <div class="cardsec">
+        <div class="partner">
+          <div class="av">&#129489;&#127997;&#8205;&#127981;</div>
+          <div class="grow"><div class="t-strong" id="partnerName">Vikas Kumar</div><div class="t-sub">Your delivery partner &middot; &#11088; 4.9</div></div>
+          <button class="pbtn" data-act="oos"><svg viewBox="0 0 24 24" fill="none" style="width:20px;height:20px"><path d="M6.6 3.8 9 3.2c.6-.1 1.2.2 1.4.8l1 2.6c.2.5 0 1.1-.4 1.4l-1.4 1a12.4 12.4 0 0 0 5.4 5.4l1-1.4c.3-.4.9-.6 1.4-.4l2.6 1c.6.2.9.8.8 1.4l-.6 2.4c-.1.6-.7 1.1-1.3 1.1C10.6 19.9 4.1 13.4 4 5.1c0-.6.5-1.2 1.1-1.3Z" stroke="#1D1D29" stroke-width="2" stroke-linejoin="round"/></svg></button>
+          <button class="pbtn" data-act="oos"><svg viewBox="0 0 24 24" fill="none" style="width:20px;height:20px"><path d="M4 6.5A3.5 3.5 0 0 1 7.5 3h9A3.5 3.5 0 0 1 20 6.5v6a3.5 3.5 0 0 1-3.5 3.5H10l-4.4 4V16A3.5 3.5 0 0 1 4 12.5v-6Z" stroke="#1D1D29" stroke-width="2" stroke-linejoin="round"/></svg></button>
+        </div>
+      </div>
+      <div class="cardsec">
+        <div class="t-strong" style="margin-bottom:6px">Order summary</div>
+        <div id="trItems"></div>
+        <div class="dashed"></div>
+        <div class="billrow"><span>Paid via <b id="trPayMode">Cash / UPI on delivery</b></span><b id="trPayAmt">&#8377;102</b></div>
+      </div>
+      <div class="cardsec" id="rateCard" style="display:none">
+        <div class="t-strong">How was your order?</div>
+        <div class="ratechips ratewrap" id="rateChips">
+          <button class="rstar" data-star="1">&#11088;</button><button class="rstar" data-star="2">&#11088;</button><button class="rstar" data-star="3">&#11088;</button><button class="rstar" data-star="4">&#11088;</button><button class="rstar" data-star="5">&#11088;</button>
+        </div>
+        <button class="btn btn-outline btn-big" style="height:48px;margin-top:14px;font-size:15px" data-act="save-order-kit">&#128190; Save this order as a Kit</button>
+      </div>
+      <div style="padding:6px 14px 26px"><button class="btn btn-pink btn-big" data-act="back-home">Back to Home</button></div>
+    </div>
+  </section>
+
+  <!-- ======================= SEARCH ======================= -->
+  <section class="screen" id="s-search">
+    <div class="srch-hdr">
+      <button class="icbtn" data-act="back"><svg viewBox="0 0 24 24" fill="none"><path d="m14 6-6 6 6 6" stroke="#1D1D29" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <div class="searchbar" style="flex:1">
+        <svg viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="#6E7280" stroke-width="2.2"/><path d="m20 20-3.2-3.2" stroke="#6E7280" stroke-width="2.2" stroke-linecap="round"/></svg>
+        <input id="searchInput" placeholder="Search for atta, dal, coke...">
+      </div>
+    </div>
+    <div class="scroll" id="searchResults"></div>
+  </section>
+
+  <!-- ======================= KITS HUB ======================= -->
+  <section class="screen" id="s-kits">
+    <div class="pagehdr">
+      <button class="icbtn" data-act="back"><svg viewBox="0 0 24 24" fill="none"><path d="m14 6-6 6 6 6" stroke="#1D1D29" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <div class="grow"><h2>Your Kits</h2><div class="t-sub" style="font-size:12.5px">Whole carts, built once. Ordered in one tap.</div></div>
+      <button class="icbtn" data-act="kit-info"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.6" stroke="#1D1D29" stroke-width="2"/><path d="M12 11v5" stroke="#1D1D29" stroke-width="2.2" stroke-linecap="round"/><circle cx="12" cy="7.8" r="1.3" fill="#1D1D29"/></svg></button>
+    </div>
+    <div class="scroll" id="kitsHubBody"></div>
+  </section>
+
+  <!-- ======================= KIT DETAIL ======================= -->
+  <section class="screen" id="s-kit">
+    <div class="pagehdr" style="padding-bottom:10px">
+      <button class="icbtn" data-act="back"><svg viewBox="0 0 24 24" fill="none"><path d="m14 6-6 6 6 6" stroke="#1D1D29" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <div class="grow"><h2 id="kitTitle" style="font-size:19px">Kit</h2><div class="t-sub" id="kitSubtitle" style="font-size:12px"></div></div>
+      <button class="icbtn" data-act="kit-delete" id="kitDeleteBtn" title="Delete kit"><svg viewBox="0 0 24 24" fill="none"><path d="M5 7h14M9.5 7V5.4c0-.8.6-1.4 1.4-1.4h2.2c.8 0 1.4.6 1.4 1.4V7m2.7 0-.7 11.3a2 2 0 0 1-2 1.9H9.5a2 2 0 0 1-2-1.9L6.8 7" stroke="#1D1D29" stroke-width="2" stroke-linecap="round"/></svg></button>
+    </div>
+    <div class="scroll" id="kitBody"></div>
+    <div class="cartfoot" id="kitFoot">
+      <div class="topay"><span id="kitFootLabel">Kit total</span><b id="kitFootAmt">&#8377;0</b></div>
+      <button class="paycod" style="flex:2" data-act="kit-add-cta" id="kitAddBtn">Add Kit to Cart<small id="kitAddSub">0 items</small></button>
+    </div>
+  </section>
+
+  <!-- ======================= GENERIC LISTING (See all) ======================= -->
+  <section class="screen" id="s-list">
+    <div class="pagehdr">
+      <button class="icbtn" data-act="back"><svg viewBox="0 0 24 24" fill="none"><path d="m14 6-6 6 6 6" stroke="#1D1D29" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <div class="grow"><h2 id="listTitle" style="font-size:19px">All items</h2><div class="t-sub" id="listCount" style="font-size:12px"></div></div>
+    </div>
+    <div class="scroll"><div class="grid3" id="listGrid" style="background:#fff;padding-top:16px"></div><div style="height:20px;background:#fff"></div></div>
+  </section>
+
+  <!-- ======================= SCHEDULE ORDER ======================= -->
+  <section class="screen" id="s-sched">
+    <div class="pagehdr">
+      <button class="icbtn" data-act="back"><svg viewBox="0 0 24 24" fill="none"><path d="m14 6-6 6 6 6" stroke="#1D1D29" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <div class="grow"><h2>Schedule your order</h2><div class="t-sub" style="font-size:12.5px">1 shipment</div></div>
+    </div>
+    <div class="scroll" id="schedBody" style="padding-bottom:8px"></div>
+    <div class="cartfoot" style="flex-direction:column;gap:10px;align-items:stretch">
+      <div class="infoline"><span class="i">i</span>You can cancel up to 30 min prior to delivery time</div>
+      <button class="paycod" style="width:100%;flex:none" data-act="sched-confirm">Confirm</button>
+    </div>
+  </section>
+
+  <!-- ======================= ORDER DELIVERED ======================= -->
+  <section class="screen" id="s-delivered">
+    <div class="scroll" id="dlvBody" style="padding-top:44px;background:#F5F6F8"></div>
+  </section>
+
+  <!-- OVERLAY + SHEET -->
+  <div id="overlay"><div id="sheet"></div></div>
+  <div id="toast"></div>
+</div>
+
+<style>
+.floatwrap.collapsed .float-row{display:none}
+.floatwrap.collapsed .offers-pill{margin-bottom:0}
+.offers-pill.closed svg{transform:rotate(180deg)}
+</style>
+<script>
+/* =====================================================================
+   DATA — products (emoji placeholders stand in for photography),
+   addresses (Meerut, UP), coupons, payment offers
+   ===================================================================== */
+const PRODUCTS=[
+ // FRESH @ ₹5
+ {id:'on5', e:'\u{1F9C5}', bg:'#FBEDF0', name:'Onion',                         unit:'450 - 500 g',      price:5,  mrp:44,  tags:['f5'],   cat:'fresh'},
+ {id:'po5', e:'\u{1F954}', bg:'#F6ECDD', name:'Potato',                        unit:'(450 - 500 g)',    price:5,  mrp:29,  tags:['f5'],   cat:'fresh'},
+ {id:'to5', e:'\u{1F345}', bg:'#FCE9E4', name:'Tomato Hybrid',                 unit:'200 - 250 g',      price:5,  mrp:25,  tags:['f5'],   cat:'fresh'},
+ {id:'ba5', e:'\u{1F34C}', bg:'#FFF6D8', name:'Banana Robusta',                unit:'2 pcs',            price:5,  mrp:42,  tags:['f5'],   cat:'fresh'},
+ {id:'le5', e:'\u{1F34B}', bg:'#F4FBE3', name:'Lemon',                         unit:'4 pcs',            price:5,  mrp:46,  tags:['f5'],   cat:'fresh'},
+ {id:'cu5', e:'\u{1F952}', bg:'#E9F7EA', name:'Cucumber English',              unit:'1 pc',             price:5,  mrp:32,  tags:['f5'],   cat:'fresh'},
+ // DEALS AT ₹9+
+ {id:'bfz', e:'\u{1F964}', bg:'#FDECEC', name:'B Fizz Malt Soft Drink',        unit:'1 pc (250 ml)',    price:19, mrp:40,  tags:['deal'], cat:'snack'},
+ {id:'stg', e:'\u{1F9F4}', bg:'#F0EDF9', name:'Streax Gel Hair Colour',        unit:'80 g',             price:49, mrp:99,  tags:['deal'], cat:'care'},
+ {id:'hr1', e:'\u{1F33C}', bg:'#FFF3E0', name:'HIRA Off The Grid Eau De Perfum',unit:'1 pc (5 ml)',     price:49, mrp:199, tags:['deal'], cat:'care'},
+ {id:'sts', e:'\u{1F9F4}', bg:'#EAF4F4', name:'Streax Insta Shampoo',          unit:'1 pack (25 ml)',   price:29, mrp:48,  tags:['deal'], cat:'care'},
+ {id:'hr2', e:'\u{1F339}', bg:'#FDECF1', name:'HIRA Red Flag Eau De Perfum',   unit:'1 pc (5 ml)',      price:49, mrp:199, tags:['deal'], cat:'care'},
+ {id:'hr3', e:'\u{1F36D}', bg:'#F6EDFB', name:'HIRA Spoiled Sweet Eau De Perfum',unit:'1 pc (5 ml)',    price:49, mrp:199, tags:['deal'], cat:'care'},
+ // FEED / BUY AGAIN
+ {id:'mlk', e:'\u{1F95B}', bg:'#EAF3FC', name:'Nandini Toned Fresh Milk | Pouch',unit:'1 pack (500 ml)',price:24, mrp:24,  tags:['feed'], cat:'dairy'},
+ {id:'crd', e:'\u{1F963}', bg:'#EAF1FA', name:'Milky Mist Curd Pouch',         unit:'1 pack (400 g)',   price:39, mrp:42,  tags:['feed'], cat:'dairy'},
+ {id:'chl', e:'\u{1F336}\u{FE0F}', bg:'#EAF7E9', name:'Chilli Green',          unit:'100 g',            price:12, mrp:33,  tags:['feed'], cat:'fresh'},
+ {id:'cok', e:'\u{1F964}', bg:'#FBECEC', name:'Coca-Cola Diet Coke Soft Drink',unit:'1 pc (330 ml)',    price:50, mrp:50,  tags:['feed'], cat:'snack'},
+ {id:'cor', e:'\u{1F33F}', bg:'#E9F6EA', name:'Coriander Leaves',              unit:'100 g',            price:14, mrp:30,  tags:['feed'], cat:'fresh'},
+ {id:'tml', e:'\u{1F345}', bg:'#FCE9E4', name:'Tomato Local',                  unit:'500 g',            price:17, mrp:45,  tags:['feed'], cat:'fresh'},
+ {id:'msh', e:'\u{1F344}', bg:'#F6F0E7', name:'Mushroom Button',               unit:'200 g',            price:60, mrp:89,  tags:['feed'], cat:'fresh'},
+ {id:'mon', e:'\u{26A1}',  bg:'#EFF0F5', name:'Monster Energy Ultra Zero Sugar',unit:'1 pc (500 ml)',   price:112,mrp:125, tags:['feed'], cat:'snack'},
+ {id:'amg', e:'\u{1F95B}', bg:'#FBEFEF', name:'Amul Gold Full Cream Fresh Milk',unit:'1 pack (500 ml)', price:34, mrp:34,  tags:['feed'], cat:'dairy'},
+ {id:'pot', e:'\u{1F954}', bg:'#F6ECDD', name:'Potato',                        unit:'900 g - 1 kg',     price:26, mrp:55,  tags:['feed'], cat:'fresh'},
+ {id:'jam', e:'\u{1FAD0}', bg:'#EFEAF7', name:'Jamun',                         unit:'250 g',            price:49, mrp:107, tags:['feed'], cat:'fresh'},
+ {id:'vcc', e:'\u{2615}',  bg:'#F2EAE2', name:'Vietnamese Cold Coffee',        unit:'450 ml',           price:99, mrp:229, tags:['feed'], cat:'cafe'},
+ {id:'lmn', e:'\u{1F34B}', bg:'#F4FBE3', name:'Lemon',                         unit:'200 g',            price:23, mrp:81,  tags:['feed'], cat:'fresh'},
+ {id:'lay', e:'\u{1F35F}', bg:'#FFF3D9', name:"Lay's India's Magic Masala",    unit:'1 pack (48 g)',    price:25, mrp:25,  tags:['feed'], cat:'snack'},
+ {id:'btr', e:'\u{1F9C8}', bg:'#FFF6DC', name:'Amul Salted Butter',            unit:'100 g',            price:62, mrp:62,  tags:['feed'], cat:'dairy'},
+ {id:'brd', e:'\u{1F35E}', bg:'#FBF0E3', name:'The Health Factory Zero Maida Bread',unit:'1 pack (350 g)',price:65,mrp:65, tags:['feed'], cat:'bakery'},
+ {id:'cfl', e:'\u{1F966}', bg:'#EFF7EC', name:'Cauliflower',                   unit:'1 pc',             price:31, mrp:64,  tags:['feed'], cat:'fresh'},
+ {id:'dal', e:'\u{1FAD8}', bg:'#FFF2DC', name:'Tata Sampann Unpolished Toor Dal',unit:'1 pack (1 kg)',  price:149,mrp:224, tags:['feed'], cat:'staples'},
+ {id:'ghe', e:'\u{1FAD9}', bg:'#FDF2E0', name:'Nandini Pure Ghee Pouch',       unit:'1 pc (200 ml)',    price:179,mrp:350, tags:['feed'], cat:'dairy'},
+ {id:'mgi', e:'\u{1F35C}', bg:'#FDF3E4', name:'Plain Maggi',                   unit:'250 g',            price:49, mrp:99,  tags:['feed'], cat:'cafe'},
+ {id:'fab', e:'\u{1F9F4}', bg:'#FEF9DC', name:'Godrej Fab Machine & Hand Wash',unit:'1 pack (800 g)',   price:89, mrp:99,  tags:['feed'], cat:'home'},
+ {id:'gbr', e:'\u{1F956}', bg:'#F8EFE4', name:'Garlic Bread + Cheese Dip',     unit:'120 g',            price:95, mrp:169, tags:['feed'], cat:'cafe'},
+ {id:'oni', e:'\u{1F9C5}', bg:'#FBEDF0', name:'Onion',                         unit:'900 g - 1 kg',     price:37, mrp:72,  tags:['feed'], cat:'fresh'},
+ {id:'sgr', e:'\u{1F35A}', bg:'#EFF2FA', name:"Parry's White Label Sugar",     unit:'1 pack (1 kg)',    price:55, mrp:70,  tags:['feed'], cat:'staples'},
+ {id:'pop', e:'\u{1F37F}', bg:'#FFF4D6', name:'ACT II Ready To Eat Butter Popcorn',unit:'1 pc (47 g)',  price:25, mrp:25,  tags:['feed'], cat:'snack'},
+ {id:'pnr', e:'\u{1F9C0}', bg:'#FDF3EC', name:'Amul Fresh Malai Paneer',       unit:'1 pack (200 g)',   price:105,mrp:105, tags:['feed'], cat:'dairy'},
+ {id:'bye', e:'\u{1F34C}', bg:'#FFF6D8', name:'Banana Elaichi (Yelakki)',      unit:'500 g',            price:62, mrp:149, tags:['feed'], cat:'fresh'},
+ {id:'hnk', e:'\u{1F36A}', bg:'#F3ECE4', name:'Hide & Seek Choco Chip Cookies',unit:'1 pack (100 g)',   price:25, mrp:30,  tags:['feed'], cat:'snack'},
+ {id:'ata', e:'\u{1F33E}', bg:'#F9F1E3', name:'Aashirvaad High Fibre Multigrain Atta',unit:'1 pack (5 kg)',price:319,mrp:406,tags:['feed'],cat:'staples'},
+ {id:'chk', e:'\u{1F35B}', bg:'#FBF0E4', name:'Chole Kulche',                  unit:'430 g',            price:149,mrp:219, tags:['feed'], cat:'cafe'},
+ {id:'cet', e:'\u{1F9F4}', bg:'#EAF4FB', name:'Cetaphil Gentle Skin Cleanser', unit:'1 pc (125 ml)',    price:413,mrp:459, tags:['feed'], cat:'care'},
+ // MISSED SOMETHING (cart suggestions)
+ {id:'dhi', e:'\u{1F963}', bg:'#EAF1FA', name:'Country Delight 30g Protein Ghar Jaisa Dahi',unit:'1 pc (400 g)',price:89,mrp:99,tags:['miss'],cat:'dairy'},
+ {id:'cvl', e:'\u{1F343}', bg:'#E9F6EA', name:'Curry Leaves - Cleaned, without roots',unit:'50 g',      price:9,  mrp:27,  tags:['miss'], cat:'fresh'},
+ {id:'gng', e:'\u{1FADA}', bg:'#F6EFE3', name:'Ginger',                        unit:'200 g',            price:46, mrp:92,  tags:['miss'], cat:'fresh'},
+ // SPONSORED (Hocco)
+ {id:'hbx', e:'\u{1F366}', bg:'#FCEEDC', name:'Hocco Bix Bun Maska Ice Cream Sandwich',unit:'1 pc (125 ml)',price:66,mrp:70,tags:['hocco'],cat:'snack'},
+ {id:'hmg', e:'\u{1F368}', bg:'#FBE7EC', name:'Hocco Aamchi Mango Ice Cream',  unit:'1 pc (120 ml)',    price:150,mrp:200, tags:['hocco'],cat:'snack'},
+ {id:'hhz', e:'\u{1F367}', bg:'#EFE9F8', name:'Hocco Hazelnut Mudslide Ice Cream Cone',unit:'1 pc (135 ml)',price:73,mrp:100,tags:['hocco'],cat:'snack'},
+ // PRICE DROP ALERT
+ {id:'oat', e:'\u{1F963}', bg:'#EAF2F0', name:'Popular Fit Oats High Protein', unit:'1 pack (1 kg)',    price:129,mrp:199, tags:['drop'], cat:'staples'},
+ {id:'pkl', e:'\u{1FAD9}', bg:'#FBEFE0', name:'Homestyle Mango Pickle Jar',    unit:'400 g',            price:149,mrp:249, tags:['drop'], cat:'staples'}
+];
+const byTag=t=>PRODUCTS.filter(p=>p.tags.includes(t));
+const P=id=>PRODUCTS.find(p=>p.id===id);
+
+let ADDRESSES=[
+ {label:'Pg',   line:'204, Krishna Boys PG, Sector 4, Shastri Nagar, Meerut, Uttar Pradesh 250004, India', dist:null},
+ {label:'Home', line:'B-45, Ganga Nagar, Near Meerut Public School, Ganga Nagar, Meerut, Uttar Pradesh 250001, India', dist:'4.1 km'},
+ {label:'Work', line:'2nd Floor, PVS Mall, Shastri Nagar Main Road, Shastri Nagar, Meerut, Uttar Pradesh 250004, India', dist:'2.8 km'},
+ {label:'Other',line:'12, Abu Lane, Near Sports Market, Meerut Cantt, Meerut, Uttar Pradesh 250001, India', dist:'5.2 km'},
+ {label:'Other',line:'D-9, Sector 15, Noida, Uttar Pradesh 201301, India', dist:'62.4 km'}
+];
+const COUPONS=[
+ {code:'Z-WINSAVE50',  amt:50,  min:2099},
+ {code:'Z-WINSAVE100', amt:100, min:2699},
+ {code:'Z-WINSAVE150', amt:150, min:3299},
+ {code:'Z-WINSAVE200', amt:200, min:3899}
+];
+const PAYOFFERS=[
+ {grp:'wallet',  lg:'amz',  title:'Get Upto \u20B950 Cashback on using Amazon Pay',        code:'AMZPAY50'},
+ {grp:'wallet',  lg:'amz',  title:'Get upto \u20B950 Cashback on using Amazon Pay Balance',code:'AMAZONPAY'},
+ {grp:'upi',     lg:'bhim', title:'Flat \u20B950 cashback with BHIM app',                  code:'TRYBHIM'},
+ {grp:'upi',     lg:'bhim', title:'Get upto \u20B930 cashback paying via BHIM UPI',        code:'ZEPBHIM'},
+ {grp:'wallet',  lg:'mbk',  title:'Assured \u20B925 cashback via MobiKwik wallet',         code:'MBK25'},
+ {grp:'paylater',lg:'zpl',  title:'Zero-interest first order on Zepto Pay Later',          code:'ZPLNEW'}
+];
+const DELIVERY_FEE=40, FREE_MIN=99;
+const SEARCH_HINTS=['Biryani Paglu','Popmaxxing','Toys','Ice Cream','Earphones','#letshydrate'];
+
+/* =====================================================================
+   STATE
+   ===================================================================== */
+let cart=new Map([['ba5',1],['le5',1],['oni',1],['mlk',1],['cor',1],['tml',1]]);
+let selAddr=0, couponApplied=null, noBag=true, homeCat='all', couponSeg='coupons', lastAdded='msh';
+let trackTimer=null, phTimer=null, dbFlip=false;
+
+/* =====================================================================
+   HELPERS
+   ===================================================================== */
+const $=s=>document.querySelector(s);
+const R='\u20B9';
+const money=n=>R+n;
+const subtotal=()=>{let s=0;cart.forEach((q,id)=>s+=P(id).price*q);return s};
+const mrpTotal=()=>{let s=0;cart.forEach((q,id)=>s+=P(id).mrp*q);return s};
+const itemCount=()=>{let s=0;cart.forEach(q=>s+=q);return s};
+const couponVal=()=>{const c=COUPONS.find(c=>c.code===couponApplied);return (c&&subtotal()>=c.min)?c.amt:0};
+const saved=()=>(mrpTotal()-subtotal())+(subtotal()>=FREE_MIN?DELIVERY_FEE:0)+couponVal();
+const toPay=()=>Math.max(0,subtotal()+(subtotal()<FREE_MIN&&subtotal()>0?DELIVERY_FEE:0)-couponVal());
+const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;');
+let toastT=null;
+function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),1900)}
+function nextCoupon(){return COUPONS.find(c=>subtotal()<c.min)}
+
+/* progress % across milestone positions */
+function progressPct(){
+  const s=subtotal();
+  const pts=[[0,3],[FREE_MIN,10],[2099,40],[2699,70],[3299,98]];
+  if(s>=3299)return 98;
+  for(let i=1;i<pts.length;i++){
+    if(s<pts[i][0]){const [a,pa]=pts[i-1],[b,pb]=pts[i];return pa+(s-a)/(b-a)*(pb-pa)}
+  }
+  return 98;
+}
+
+/* =====================================================================
+   ROUTER
+   ===================================================================== */
+const stack=['home'];
+function show(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('on',s.id==='s-'+id));
+  if(id==='cart')renderCart();
+  if(id==='coupons')renderCoupons();
+  if(id==='payopts')renderPayOpts();
+  if(id==='map')renderBigMap();
+  if(id==='addr')prepAddrForm();
+  if(id==='search'){renderSearch($('#searchInput').value);setTimeout(()=>$('#searchInput').focus(),240)}
+}
+function go(id){stack.push(id);show(id)}
+function back(){if(stack.length>1)stack.pop();show(stack[stack.length-1])}
+function goHome(){stack.length=0;stack.push('home');show('home')}
+
+/* =====================================================================
+   SHARED BUILDERS
+   ===================================================================== */
+const heart='<span class="heart"><svg viewBox="0 0 24 24" fill="none"><path d="M12 20s-7-4.4-9.2-8.6C1.2 8.4 3 5 6.4 5c2 0 3.6 1.1 4.4 2.6l1.2 2 1.2-2C14 6.1 15.6 5 17.6 5 21 5 22.8 8.4 21.2 11.4 19 15.6 12 20 12 20Z" stroke="#FF2D6C" stroke-width="2" stroke-linejoin="round" fill="#fff"/></svg></span>';
+function stepHTML(id,lite){
+  const q=cart.get(id)||0;
+  if(!q)return '<button class="addbtn" data-act="add" data-pid="'+id+'">+</button>';
+  return '<div class="stepper'+(lite?' lite sm':'')+'"><button data-act="dec" data-pid="'+id+'">&minus;</button><span class="q">'+q+'</span><button data-act="inc" data-pid="'+id+'">+</button></div>';
+}
+function pcard(p,mini){
+  const off=p.mrp-p.price;
+  return '<div class="pcard'+(mini?' minicard':'')+'">'
+   +'<div class="pimg" style="background:'+p.bg+'">'+heart+'<span>'+p.e+'</span>'
+   +'<div class="addwrap step-slot" data-pid="'+p.id+'">'+stepHTML(p.id)+'</div></div>'
+   +'<div class="p-meta"><div class="pricebar"><span class="pricepill">'+money(p.price)+'</span>'+(off>0?'<span class="mrp">'+money(p.mrp)+'</span>':'')+'</div>'
+   +(off>0?'<div class="offrow"><span class="offtag">'+money(off)+' OFF</span><span class="dash"></span></div>':'')
+   +'<div class="p-name">'+esc(p.name)+'</div><div class="p-unit">'+esc(p.unit)+'</div></div></div>';
+}
+function shortAddr(a){const t=a.line;return t.length>44?t.slice(0,44)+'...':t}
+
+/* =====================================================================
+   HOME RENDER + LIVE UPDATES
+   ===================================================================== */
+function renderHomeRows(){
+  $('#fresh5Row').innerHTML=byTag('f5').map(p=>pcard(p)).join('');
+  $('#dealsRow').innerHTML=byTag('deal').map(p=>pcard(p)).join('');
+  renderFeed();
+}
+function renderFeed(){
+  let list=byTag('feed');
+  if(homeCat==='fresh')list=list.filter(p=>p.cat==='fresh');
+  $('#feedGrid').innerHTML=list.map(p=>pcard(p)).join('');
+}
+function updateSteppers(){
+  document.querySelectorAll('.step-slot').forEach(sl=>{sl.innerHTML=stepHTML(sl.dataset.pid)});
+  document.querySelectorAll('.srow-slot').forEach(sl=>{sl.innerHTML=stepHTML(sl.dataset.pid,true)});
+}
+function updateFloat(){
+  const s=subtotal(),n=itemCount();
+  const cb=$('#cartbtn');
+  cb.classList.toggle('hidden',n===0);
+  if(n>0){$('#cartCount').textContent=n+(n===1?' item':' items');$('#cartThumb').textContent=P(lastAdded)?P(lastAdded).e:'\u{1F344}'}
+  const icon=$('#dbIcon'),title=$('#dbTitle'),sub=$('#dbSub');
+  if(s<FREE_MIN){
+    icon.textContent='\u{1F6F5}';icon.style.background='#2F333E';
+    title.textContent='Unlock free delivery';sub.innerHTML='Shop for <b>'+money(FREE_MIN-s)+'</b>';
+    return;
+  }
+  const nc=nextCoupon();
+  if(nc&&!dbFlip){
+    icon.textContent='\u{1F3F7}\u{FE0F}';icon.style.background='#2F333E';
+    title.textContent='Unlock extra '+money(nc.amt)+' OFF';
+    sub.innerHTML='Shop for <b>'+money(nc.min-s)+'</b> more \u24D8';
+  }else{
+    icon.textContent='\u{1F6F5}';icon.style.background='#1F8A3D';
+    title.textContent='Free delivery unlocked \u{1F389}';
+    sub.textContent=nc?'\u20B90 delivery fee applied on this order':'Enjoy free superfast delivery';
+  }
+}
+function updateHeaders(){
+  const a=ADDRESSES[selAddr];
+  $('#hAddrLabel').textContent=a.label;$('#hAddrLine').textContent=shortAddr(a);
+  $('#cAddrLabel').textContent=a.label;$('#cAddrLine').textContent=shortAddr(a);
+  $('#pAddrLabel').textContent=a.label;$('#pAddrLine').textContent=shortAddr(a);
+}
+function updateAll(){
+  updateSteppers();updateFloat();
+  $('#payoptsAmt').textContent=money(toPay());
+  if($('#s-cart').classList.contains('on'))renderCart();
+}
+
+/* =====================================================================
+   CART RENDER
+   ===================================================================== */
+function cartItemRow(id){
+  const p=P(id),q=cart.get(id),off=p.mrp>p.price;
+  const right=p.price===5
+    ?'<button class="removebtn" data-act="rm" data-pid="'+id+'">Remove</button>'
+    :'<div class="step-slot" data-pid="'+id+'">'+stepHTML(id,true)+'</div>';
+  return '<div class="citem"><div class="img" style="background:'+p.bg+'">'+p.e+'</div>'
+   +'<div class="grow"><div class="nm">'+esc(p.name)+'</div><div class="un">'+esc(p.unit)+(q>1?' &nbsp;\u00D7 '+q:'')+'</div></div>'
+   +'<div class="right">'+right+'<div class="prices">'+(off?'<s>'+money(p.mrp*q)+'</s>':'')+money(p.price*q)+'</div></div></div>';
+}
+function renderCart(){
+  const scr=$('#cartScroll');
+  const empty=itemCount()===0;
+  $('#savebar').style.display=(empty||saved()<=0)?'none':'block';
+  $('#bagrow').style.display=empty?'none':'flex';
+  $('#cartfoot').style.display=empty?'none':'flex';
+  if(empty){
+    scr.innerHTML='<div class="emptycart" style="height:100%"><div class="cup">\u{1F576}\u{FE0F}</div><p>You put the &lsquo;art&rsquo; in the cart!</p><button class="btn btn-outline" style="height:48px;padding:0 26px;border-radius:14px" data-act="go-home">Browse products</button></div>';
+    return;
+  }
+  $('#savebar').innerHTML='Yay! You <b>saved '+money(saved())+'</b> on this order &nbsp;&#8964;';
+  if(typeof renderCartFoot==='function'){renderCartFoot()}else{$('#footPay').textContent=money(toPay())}
+  const nc=nextCoupon();
+  const couponHead=couponApplied
+    ?'<div class="t-strong">'+money(couponVal())+' saved with '+couponApplied+'</div><div class="t-sub" style="color:#1F8A3D;font-weight:700">Coupon applied on this order</div>'
+    :'<div class="t-strong">Save '+money(nc?nc.amt:200)+' with '+(nc?nc.code:'Z-WINSAVE200')+'</div>'
+      +(nc&&subtotal()<nc.min?'<div class="t-orange">Shop for '+money(nc.min-subtotal())+' more to apply</div>':'<div class="t-sub" style="color:#1F8A3D;font-weight:700">Tap apply to redeem now</div>');
+  const couponBtn=couponApplied
+    ?'<button class="pill-outline" data-act="uncoupon">Remove</button>'
+    :(nc&&subtotal()<nc.min?'<button class="pill-ghost">Locked</button>':'<button class="pill-outline" data-act="apply-cart-coupon" data-code="'+(nc?nc.code:'Z-WINSAVE200')+'">Apply</button>');
+  /* progress */
+  const nodes=[[10,'Free Delivery',subtotal()>=FREE_MIN?'Auto applied':'Above '+money(FREE_MIN),subtotal()>=FREE_MIN],
+               [40,money(50)+' OFF','Coupon',subtotal()>=2099],
+               [70,money(100)+' OFF','Coupon',subtotal()>=2699],
+               [98,money(150)+' OFF','Coupon',subtotal()>=3299]];
+  const nodeHTML=nodes.map(n=>'<div class="pnode'+(n[3]?' done':'')+'" style="left:'+n[0]+'%"><div class="n">'+(n[3]?'\u2713':'%')+'</div><b>'+n[1]+'</b><span>'+n[2]+'</span></div>').join('');
+  const progTitle=subtotal()<FREE_MIN?'Shop '+money(FREE_MIN-subtotal())+' more, Unlock Free Delivery'
+    :(nc?'Shop '+money(nc.min-subtotal())+' more, Unlock '+money(nc.amt)+' OFF':'All coupons unlocked \u{1F389}');
+  scr.innerHTML=(typeof kitBanner==='function'?kitBanner():'')
+   +'<div class="cardsec"><div class="t-strong" style="font-size:17px;margin-bottom:12px">Coupons &amp; offers</div>'
+    +'<div class="rowline"><div class="cicon green">%</div><div class="grow">'+couponHead+'</div>'+couponBtn+'</div>'
+    +'<a class="viewall" data-act="goto-coupons" style="cursor:pointer">View all coupons &nbsp;&rsaquo;</a>'
+    +'<div class="dashed"></div>'
+    +'<div class="rowline"><div class="cicon amz">pay<i>~</i></div><div class="grow"><div class="t-strong" style="font-size:14.5px">Get upto '+money(50)+' cashback with Amazon Pay</div><div class="t-sub">Valid on orders above '+money(99)+'</div></div><button class="pill-outline" data-act="apply-offer">Apply</button></div>'
+   +'</div>'
+   +'<div class="cardsec">'+(typeof etaCard==='function'?etaCard():'<div class="deliv-h"><h4>Delivering in 5 mins</h4></div>')
+    +'<div style="margin-top:6px">'+[...cart.keys()].map(cartItemRow).join('')+'</div>'
+    +'<div class="forgot">Forgot something? <a data-act="go-home" style="cursor:pointer">Add More Items</a></div>'
+    +'<div class="forgot" style="padding-top:2px;font-size:13.5px"><a data-act="save-cart-kit" style="cursor:pointer;color:#5B21B6">&#128190; Save this cart as a Kit</a></div>'
+   +'</div>'
+   +'<div class="cardsec"><div class="prog-title">'+progTitle+'</div>'
+    +'<div class="progressbar"><div class="track"></div><div class="fill" style="width:'+progressPct()+'%"></div>'+nodeHTML+'</div>'
+    +'<div style="height:34px"></div>'
+   +'</div>'
+   +'<div class="cardsec"><div class="t-strong" style="font-size:17px">Missed something?</div>'
+    +'<div class="hscroll" style="padding:12px 0 4px">'+byTag('miss').map(p=>pcard(p,true)).join('')+'</div>'
+    +'<button class="btn btn-ghost btn-big" style="color:#1D1D29;font-size:15px;height:48px;margin-top:8px" data-act="go-home">See all &nbsp;\u25B8</button>'
+   +'</div>'
+   +'<div class="cardsec"><div class="spons-h"><div class="logo">HOCCO</div><div><b>Hocco</b><span>Sponsored</span></div></div>'
+    +'<div class="hscroll" style="padding:8px 0 4px">'+byTag('hocco').map(p=>pcard(p,true)).join('')+'</div>'
+   +'</div>'
+   +'<div class="cardsec" style="margin-bottom:16px"><div class="t-strong" style="font-size:19px">Price Drop Alert</div>'
+    +'<div class="hscroll" style="padding:12px 0 4px">'+['gbr','oat','pkl'].map(id=>pcard(P(id),true)).join('')+'</div>'
+   +'</div>';
+}
+
+/* =====================================================================
+   COUPONS PAGE
+   ===================================================================== */
+let offerGrp=null;
+function couponCard(c){
+  const s=subtotal(),locked=s<c.min;
+  return '<div class="coupcard"><div class="top"><div class="badgeic"><div class="pct">%</div></div>'
+   +'<div class="grow"><h4>Get flat '+money(c.amt)+' off on your order</h4>'
+   +(locked?'<div class="t-orange">Shop for '+money(c.min-s)+' more to unlock \u24D8</div>'
+           :'<div class="t-sub" style="color:#1F8A3D;font-weight:800">Apply now on your cart</div>')
+   +'</div>'+(couponApplied===c.code?'<button class="pill-outline" data-act="uncoupon">Applied \u2713</button>'
+     :(locked?'<button class="pill-ghost">Locked</button>':'<button class="pill-outline" data-act="apply-cart-coupon" data-code="'+c.code+'">Apply</button>'))
+   +'</div><div class="dashed"></div><div class="foot"><span class="codechip">'+c.code+'</span>'
+   +'<button class="knowmore" data-act="knowmore">Know more <svg class="chev" viewBox="0 0 24 24" fill="none" style="width:15px;height:15px"><path d="m6 9 6 6 6-6" stroke="#3F4451" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>'
+   +'<div class="tncbox">Valid once per user on orders above '+money(c.min)+'. Auto-applies at checkout on the Zepto tab. Cannot be clubbed with other discount coupons. Max discount '+money(c.amt)+'.</div></div>';
+}
+function offerLogo(t){
+  if(t==='amz')return '<div class="payoff-logo" style="background:#232F3E;flex-direction:column;line-height:1">pay<span style="color:#FF9900;font-size:14px">~</span></div>';
+  if(t==='bhim')return '<div class="payoff-logo" style="background:#fff;border:1px solid var(--line)"><span style="width:22px;height:22px;background:conic-gradient(from 200deg,#FF8A00,#0AA84F,#FF8A00);border-radius:5px;display:block"></span></div>';
+  if(t==='mbk')return '<div class="payoff-logo" style="background:#2A3B8F">MK</div>';
+  return '<div class="payoff-logo" style="background:#7C3AED;font-size:9px;text-align:center;line-height:1.2">PAY<br>LATER</div>';
+}
+function offerCard(o){
+  return '<div class="coupcard"><div class="top">'+offerLogo(o.lg)
+   +'<div class="grow"><h4>'+o.title+'</h4><div class="t-sub">Valid on orders above '+money(99)+'</div></div>'
+   +'<button class="pill-outline" data-act="apply-offer">Apply</button></div>'
+   +'<div class="dashed"></div><div class="foot"><span class="codechip">'+o.code+'</span>'
+   +'<button class="knowmore" data-act="knowmore">Know more <svg class="chev" viewBox="0 0 24 24" fill="none" style="width:15px;height:15px"><path d="m6 9 6 6 6-6" stroke="#3F4451" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>'
+   +'<div class="tncbox">Cashback lands in the source account within 24 hrs of delivery. One redemption per user during the offer period. Minimum order value '+money(99)+'.</div></div>';
+}
+function renderCoupons(){
+  $('#segCoup').classList.toggle('on',couponSeg==='coupons');
+  $('#segPay').classList.toggle('on',couponSeg!=='coupons');
+  const body=$('#couponsBody');
+  if(couponSeg==='coupons'){
+    body.innerHTML='<div class="section-label" style="margin-top:8px">Featured coupons</div>'+COUPONS.map(couponCard).join('')+'<div style="height:24px"></div>';
+  }else{
+    const chips=[['upi','\u25B6 UPI'],['card','\u{1F4B3} Card'],['wallet','\u{1F45B} Wallet'],['paylater','\u20B9 PayLater']]
+      .map(c=>'<button class="fchip'+(offerGrp===c[0]?' on':'')+'" data-act="fgrp" data-grp="'+c[0]+'" '+(offerGrp===c[0]?'style="border-color:#1D1D29"':'')+'>'+c[1]+'</button>').join('');
+    const list=PAYOFFERS.filter(o=>!offerGrp||o.grp===offerGrp);
+    body.innerHTML='<div class="filterchips">'+chips+'</div>'
+      +(list.length?list.map(offerCard).join(''):'<div class="segnote" style="margin-top:30px">No offers in this category right now</div>')
+      +'<div style="height:24px"></div>';
+  }
+}
+
+/* =====================================================================
+   PAYMENT OPTIONS PAGE
+   ===================================================================== */
+function upiApp(name,style,glyph){return '<div class="upiapp" data-act="oos-pay"><div class="lg" style="'+style+'">'+glyph+'</div>'+name+'</div>'}
+function renderPayOpts(){
+  $('#payoptsAmt').textContent=money(toPay());
+  $('#payoptsBody').innerHTML=
+   '<div class="section-label" style="margin-top:14px">Recommended Payments</div>'
+   +'<div class="optrow" data-act="open-paysheet" style="cursor:pointer"><div class="paylogo"><span style="font-size:12px"><b style="color:#002E6E">pay</b><b style="color:#00B9F1">tm</b></span></div><div class="grow"><h5>Paytm UPI</h5></div><svg class="chev" viewBox="0 0 24 24" fill="none"><path d="m9 6 6 6-6 6" stroke="#FF2D6C" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>'
+   +'<div class="section-label"><span class="wordmark" style="font-size:16px">zepto</span> <i style="font-style:normal;color:#7A3BEF">UPI\u26A1</i></div>'
+   +'<div class="optrow" data-act="oos-pay"><div class="paylogo" style="background:#1D1D29;color:#fff">Z</div><div class="grow"><h5>Unlock Zepto UPI</h5><p>Pay via UPI without leaving the app</p></div><span class="linktag">LINK <svg class="chev" viewBox="0 0 24 24" fill="none" style="width:15px"><path d="m9 6 6 6-6 6" stroke="#FF2D6C" stroke-width="2.6" stroke-linecap="round"/></svg></span></div>'
+   +'<div class="section-label">UPI\u26A1 &nbsp;Pay by UPI</div>'
+   +'<div class="optrow" style="flex-direction:column;align-items:stretch;gap:14px">'
+     +'<div class="rowline" data-act="oos-pay" style="cursor:pointer"><div class="paylogo" style="font-size:10px;font-weight:800">UPI\u26A1</div><div class="grow"><h5>Pay by any UPI app</h5><p>Use any UPI app on the phone to pay</p></div><svg class="chev" viewBox="0 0 24 24" fill="none"><path d="m9 6 6 6-6 6" stroke="#FF2D6C" stroke-width="2.6" stroke-linecap="round"/></svg></div>'
+     +'<div class="upiapps">'
+       +upiApp('GPay','background:conic-gradient(from 40deg,#4285F4,#34A853,#FBBC05,#EA4335,#4285F4)','G')
+       +upiApp('PhonePe','background:#5F259F','\u092A\u0947')
+       +upiApp('Paytm','background:#fff;border:1px solid var(--line);color:#00B9F1;font-size:10px','paytm')
+       +upiApp('Pop','background:#111','POP')
+     +'</div>'
+     +'<div class="rowline" data-act="oos-pay" style="cursor:pointer"><div class="paylogo">\u{1F533}</div><div class="grow"><h5>Pay via QR Code <span class="newbadge">NEW</span></h5></div><svg class="chev" viewBox="0 0 24 24" fill="none"><path d="m9 6 6 6-6 6" stroke="#FF2D6C" stroke-width="2.6" stroke-linecap="round"/></svg></div>'
+   +'</div>'
+   +'<div class="section-label">Pay Later</div>'
+   +'<div class="plbanner"><b>Get instant credit for all your Zepto orders</b><div class="plchip">zepto<br>PAY LATER</div></div>'
+   +'<div class="optrow" data-act="oos-pay"><div class="paylogo" style="background:#7C3AED;color:#fff;font-size:9px;text-align:center;line-height:1.2">PAY<br>LATER</div><div class="grow"><h5>Zepto Pay Later <span class="newbadge">NEW</span></h5><p>by <b>snapmint</b></p></div><span class="linktag">LINK <svg class="chev" viewBox="0 0 24 24" fill="none" style="width:15px"><path d="m9 6 6 6-6 6" stroke="#FF2D6C" stroke-width="2.6" stroke-linecap="round"/></svg></span></div>'
+   +'<div class="optrow"><div class="paylogo" style="opacity:.45">\u25B7</div><div class="grow"><h5 style="color:#A6ABB5">LazyPay</h5></div><span class="ineligible">Currently Ineligible</span></div>'
+   +'<div class="optrow" data-act="oos-pay"><div class="paylogo"><span style="font-size:11px"><b>pay</b><b style="color:#FF9900">~</b></span></div><div class="grow"><h5>Amazon Pay Later</h5></div><span class="linktag">LINK <svg class="chev" viewBox="0 0 24 24" fill="none" style="width:15px"><path d="m9 6 6 6-6 6" stroke="#FF2D6C" stroke-width="2.6" stroke-linecap="round"/></svg></span></div>'
+   +'<div class="section-label">Credit &amp; Debit Cards</div>'
+   +'<div class="optrow" data-act="oos-pay"><div class="paylogo" style="color:#FF2D6C;font-size:22px">+</div><div class="grow"><h5 style="color:#FF2D6C">Add New Card</h5><p>Visa, Mastercard, Rupay &amp; more</p></div></div>'
+   +'<div class="section-label">Wallets</div>'
+   +'<div class="optrow" data-act="oos-pay"><div class="paylogo" style="background:#5F259F;color:#fff">\u092A\u0947</div><div class="grow"><h5>PhonePe Wallet</h5></div><svg class="chev" viewBox="0 0 24 24" fill="none"><path d="m9 6 6 6-6 6" stroke="#FF2D6C" stroke-width="2.6" stroke-linecap="round"/></svg></div>'
+   +'<div class="optrow" data-act="oos-pay"><div class="paylogo"><span style="font-size:11px"><b>pay</b><b style="color:#FF9900">~</b></span></div><div class="grow"><h5>Amazon Pay Balance</h5></div><span class="linktag">LINK</span></div>'
+   +'<div class="optrow morelink" data-act="oos-pay" style="box-shadow:none;background:transparent"><svg class="chev" viewBox="0 0 24 24" fill="none" style="width:16px"><path d="m6 9 6 6 6-6" stroke="#FF2D6C" stroke-width="2.6" stroke-linecap="round"/></svg> View More Wallets</div>'
+   +'<div class="section-label">Pluxee</div>'
+   +'<div class="optrow" data-act="oos-pay"><div class="paylogo" style="color:#FF2D6C;font-size:22px">+</div><div class="grow"><h5 style="color:#FF2D6C">Add Pluxee Card</h5></div></div>'
+   +'<div class="section-label">Netbanking</div>'
+   +'<div class="optrow" style="display:block"><div class="bankgrid">'
+     +'<div class="bank" data-act="oos-pay"><div class="lg" style="background:#EDF3FF;color:#1A4FBF;border:1px solid #D6E2FA">H</div>HDFC Bank</div>'
+     +'<div class="bank" data-act="oos-pay"><div class="lg" style="background:#FFF1E8;color:#B0400E;border:1px solid #F8DECC">I</div>ICICI Bank</div>'
+     +'<div class="bank" data-act="oos-pay"><div class="lg" style="background:#E8F3FB;color:#1A6FA8;border:1px solid #CFE6F6">S</div>SBI</div>'
+     +'<div class="bank" data-act="oos-pay"><div class="lg" style="background:#FBEAF1;color:#97144D;border:1px solid #F2CFDE">A</div>Axis Bank</div>'
+   +'</div><div class="morelink" data-act="oos-pay" style="margin-top:12px"><svg class="chev" viewBox="0 0 24 24" fill="none" style="width:16px"><path d="m6 9 6 6 6-6" stroke="#FF2D6C" stroke-width="2.6" stroke-linecap="round"/></svg> View More Banks</div></div>'
+   +'<div class="section-label">Cash on Delivery</div>'
+   +'<div class="optrow" data-act="cod" style="cursor:pointer"><div class="paylogo" style="background:#FDEFF4;border:none;color:#DE1257">\u20B9</div><div class="grow"><h5>Pay by Cash / UPI on delivery</h5></div><span class="radio" id="codRadio"></span></div>'
+   +'<div style="height:26px"></div>';
+}
+
+/* =====================================================================
+   SHEETS
+   ===================================================================== */
+function openSheet(html,lock){
+  const ov=$('#overlay');$('#sheet').innerHTML=html;
+  if(lock)$('#sheet').dataset.lock='1';else delete $('#sheet').dataset.lock;
+  ov.classList.add('open');
+}
+function closeSheet(){$('#overlay').classList.remove('open')}
+const pinIc='<svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 21s-6.5-5.3-6.5-10.2A6.5 6.5 0 0 1 12 4.3a6.5 6.5 0 0 1 6.5 6.5C18.5 15.7 12 21 12 21Z" stroke="#1D1D29" stroke-width="2"/><circle cx="12" cy="10.8" r="2.3" stroke="#1D1D29" stroke-width="2"/></svg>';
+const homeIc='<svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="m4 11 8-7 8 7v8.2a1.8 1.8 0 0 1-1.8 1.8H5.8A1.8 1.8 0 0 1 4 19.2V11Z" stroke="#1D1D29" stroke-width="2" stroke-linejoin="round"/><path d="M9.5 21v-6h5v6" stroke="#1D1D29" stroke-width="2" stroke-linejoin="round"/></svg>';
+const workIc='<svg width="22" height="22" viewBox="0 0 24 24" fill="none"><rect x="4" y="7" width="9" height="14" rx="1.5" stroke="#1D1D29" stroke-width="2"/><path d="M13 11h5.5A1.5 1.5 0 0 1 20 12.5V21M7 11h3M7 14.5h3M7 18h3M16 14.5h1M16 18h1" stroke="#1D1D29" stroke-width="2" stroke-linecap="round"/></svg>';
+function labIcon(l){return l==='Home'?homeIc:(l==='Work'?workIc:pinIc)}
+function sheetAddress(){
+  const rows=ADDRESSES.map((a,i)=>'<div class="addrrow" data-act="selAddr" data-i="'+i+'" style="cursor:pointer"><span class="ic">'+labIcon(a.label)+'</span>'
+    +'<div class="grow"><h5>'+a.label+' '+(i===selAddr?'<span class="selchip">Selected</span>':(a.dist?'<span class="dist">\u2022 '+a.dist+'</span>':''))+'</h5>'
+    +'<p>'+esc(a.line)+'</p></div></div>').join('');
+  return '<div class="sheet-pad" style="position:relative"><div class="sheet-title">Select Address</div>'
+   +'<button class="sheet-x icbtn" data-act="close-sheet" style="border:none"><svg viewBox="0 0 24 24" width="20" height="20" fill="none"><path d="M6 6l12 12M18 6 6 18" stroke="#1D1D29" stroke-width="2.4" stroke-linecap="round"/></svg></button>'
+   +'<div class="addnew" data-act="new-addr" style="cursor:pointer"><span style="color:var(--pink);font-size:24px;font-weight:800">+</span><b>Add New Address</b><svg class="chev" viewBox="0 0 24 24" fill="none"><path d="m9 6 6 6-6 6" stroke="#1D1D29" stroke-width="2.4" stroke-linecap="round"/></svg></div>'
+   +'<div class="section-label" style="margin:6px 0 4px">Saved Addresses</div>'+rows+'</div>';
+}
+function sheetHow(){
+  return '<div class="sheet-pad"><div class="grabber"></div><div class="how-hero">\u{1F9FA}</div>'
+   +'<div class="sheet-title" style="text-align:center">Here&rsquo;s How it Works</div>'
+   +'<p class="sheet-sub" style="text-align:center">We deliver your items safely and hygienically &mdash; and hand them over with no bag to reduce waste.</p>'
+   +'<div class="howrow"><span class="em">\u{1F49C}</span><p>You opt-in for No Bag Delivery &amp; help us reduce waste and make every order more sustainable</p></div>'
+   +'<div class="howrow"><span class="em">\u{1F6B4}</span><p>Our delivery partner hands over your order safely &mdash; no bag, less waste, more sustainability</p></div>'
+   +'<div class="howrow"><span class="em">\u2615</span><p>This feature is currently not available on Zepto Cafe orders</p></div>'
+   +'<button class="btn btn-pink btn-big" data-act="close-sheet" style="margin-top:18px">Close</button></div>';
+}
+function sheetCode(){
+  return '<div class="sheet-pad"><div class="sheet-title" style="font-size:20px">Have a coupon code? Apply here!</div>'
+   +'<div class="flt" id="cpnWrap"><label>Coupon Code</label><input id="cpnInput" placeholder="Enter coupon code" autocomplete="off"><div class="err" id="cpnErr">Invalid code</div></div>'
+   +'<button class="btn btn-pink btn-big" id="cpnApply" data-act="code-apply" disabled style="box-shadow:none">Apply</button></div>';
+}
+function sheetPay(){
+  return '<div class="sheet-pad"><div style="display:flex;align-items:flex-start;justify-content:space-between">'
+   +'<div><div class="sheet-title">Pay '+money(toPay())+'</div><div class="sheet-sub">Last used payment option</div></div>'
+   +'<button class="linkpink" data-act="more-options" style="font-size:17px;padding-top:6px">More Options</button></div>'
+   +'<div class="dashed" style="margin:12px -18px 0;border-color:#EDEEF2;border-style:solid;border-width:1px 0 0"></div>'
+   +'<div class="payrow"><div class="paylogo"><span style="font-size:12px"><b style="color:#002E6E">pay</b><b style="color:#00B9F1">tm</b></span></div><div class="grow"><h5 style="font-size:17px;font-weight:800">Paytm UPI</h5></div><span class="checkmark">\u2713</span></div>'
+   +'<div class="dashed"></div>'
+   +'<div class="payrow" style="padding-top:2px"><div class="paylogo" style="background:#7C3AED;color:#fff;font-size:9px;text-align:center;line-height:1.25;border:none">PAY<br>LATER</div>'
+   +'<div class="grow"><h5 style="font-size:16.5px">Zepto Pay Later <span class="newbadge">NEW</span></h5><p>by <b style="color:#134E4A">snapmint</b></p></div>'
+   +'<button class="linktag" data-act="oos-pay">LINK <svg class="chev" viewBox="0 0 24 24" fill="none" style="width:15px"><path d="m9 6 6 6-6 6" stroke="#FF2D6C" stroke-width="2.6" stroke-linecap="round"/></svg></button></div>'
+   +'<button class="btn btn-pink btn-big" data-act="proceed" style="margin-top:12px">Proceed to Pay</button></div>';
+}
+function sheetFailed(){
+  return '<div class="sheet-pad"><div class="failorb"><div class="inner">!</div></div>'
+   +'<div class="failtitle">Payment Failed</div>'
+   +'<div class="failsub">Place your order now. Pay online while we deliver your order.</div>'
+   +'<button class="btn btn-pink btn-big" data-act="place-from-failed" style="margin-top:16px">Place Order Now</button>'
+   +'<button class="notnow" data-act="close-sheet">Not now</button></div>';
+}
+function sheetOrdering(mode){
+  const a=ADDRESSES[selAddr];
+  return '<div class="sheet-pad"><div class="grabber" style="margin-bottom:10px"></div>'
+   +'<div class="sheet-title">Ordering now</div><div class="sheet-sub">You can pay online or at the time of delivery.</div>'
+   +'<div class="orderrow" style="margin-top:8px"><div class="ic" style="background:#E7F6EB">\u{1F4B5}</div><div><b>'+money(toPay())+'</b><span>Amount to Pay</span></div></div>'
+   +'<div class="dashed" style="margin:4px 0"></div>'
+   +'<div class="orderrow"><div class="ic" style="background:#EEF0F4">\u{1F4CD}</div><div class="grow"><b style="font-size:17px">Delivering to '+a.label+'</b><span style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:280px">'+esc(a.line)+'</span></div></div>'
+   +'<button class="btn btn-pink btn-big fillbtn" id="placeNowBtn" data-act="place-now" data-mode="'+mode+'" style="margin-top:14px"><span class="fillspan"></span><span style="position:relative">Place Order Now</span></button>'
+   +'<button class="cancelorder" data-act="close-sheet">Cancel Order</button></div>';
+}
+function sheetBill(){
+  const s=subtotal(),m=mrpTotal(),cv=couponVal(),freeD=s>=FREE_MIN;
+  return '<div class="sheet-pad"><div class="sheet-title" style="font-size:20px">Bill Summary</div><div style="height:8px"></div>'
+   +'<div class="billrow"><span>Item Total</span><b><s style="color:#9AA0AC;font-weight:600;margin-right:6px">'+money(m)+'</s>'+money(s)+'</b></div>'
+   +'<div class="billrow"><span>Product Discount</span><b style="color:var(--green)">&minus;'+money(m-s)+'</b></div>'
+   +(cv?'<div class="billrow"><span>Coupon &middot; '+couponApplied+'</span><b style="color:var(--green)">&minus;'+money(cv)+'</b></div>':'')
+   +'<div class="billrow"><span>Delivery Fee</span><b class="free">'+(freeD?'<s>'+money(DELIVERY_FEE)+'</s>FREE':money(DELIVERY_FEE))+'</b></div>'
+   +'<div class="billrow"><span>Handling Fee</span><b class="free"><s>'+money(5)+'</s>FREE</b></div>'
+   +'<div class="dashed"></div>'
+   +'<div class="billrow" style="font-size:17px"><b>To Pay</b><b>'+money(toPay())+'</b></div>'
+   +'<div class="savebar" style="border-radius:12px;margin-top:10px">You are saving <b>'+money(saved())+'</b> on this order</div>'
+   +'<button class="btn btn-pink btn-big" data-act="close-sheet" style="margin-top:16px">Got it</button></div>';
+}
+
+/* =====================================================================
+   MAP SVGs (stylised Meerut street grid)
+   ===================================================================== */
+function mapSVG(w,h,kind){
+  const lbl=(x,y,t,r)=>'<text x="'+x+'" y="'+y+'" font-size="11" font-weight="700" fill="#8B8674" font-family="Plus Jakarta Sans"'+(r?' transform="rotate('+r+' '+x+' '+y+')"':'')+'>'+t+'</text>';
+  const blk=(x,y,ww,hh)=>'<rect x="'+x+'" y="'+y+'" width="'+ww+'" height="'+hh+'" rx="7" fill="#F8F4EB" stroke="#E5E0D2"/>';
+  let inner=''
+   +blk(-20,-20,150,120)+blk(160,-20,140,90)+blk(330,-20,140,130)
+   +blk(-20,140,120,140)+blk(300,150,170,120)+blk(-20,320,150,120)+blk(170,330,130,120)+blk(330,310,150,150)
+   +'<rect x="130" y="120" width="140" height="150" rx="10" fill="#DEEBD8" stroke="#CBDCC2"/>'
+   +lbl(150,200,'Shastri Nagar')+lbl(148,215,'Central Park')
+   +'<path d="M -10 '+h*0.62+' H '+(w+10)+'" stroke="#D8D2C4" stroke-width="24" stroke-linecap="round"/>'
+   +'<path d="M -10 '+h*0.62+' H '+(w+10)+'" stroke="#FFFFFF" stroke-width="15" stroke-linecap="round"/>'
+   +'<path d="M '+w*0.74+' -10 V '+(h+10)+'" stroke="#D8D2C4" stroke-width="22" stroke-linecap="round"/>'
+   +'<path d="M '+w*0.74+' -10 V '+(h+10)+'" stroke="#FFFFFF" stroke-width="13" stroke-linecap="round"/>'
+   +'<path d="M -10 60 Q '+w*0.4+' 30 '+(w*0.74)+' 84" stroke="#EDE8DC" stroke-width="12" fill="none" stroke-linecap="round"/>';
+  if(kind!=='mini'){
+    inner+=lbl(w*0.18,h*0.62-16,'Shastri Nagar Main Rd')
+     +lbl(w*0.74+16,h*0.3,'Garh Road',90)
+     +lbl(24,h*0.82,'\u{1F3EB} Meerut Public School')
+     +lbl(w*0.55,h*0.9,'\u{1F6D5} Sai Mandir')
+     +lbl(w*0.06,40,'\u{1F3EC} PVS Mall');
+  }
+  if(kind==='track'){
+    inner+='<path d="M 40 150 C 120 60, 210 190, 330 70" stroke="#FF2D6C" stroke-width="4" stroke-dasharray="2 10" stroke-linecap="round" fill="none"/>'
+     +'<rect x="24" y="132" width="34" height="34" rx="10" fill="#7A3BEF"/><text x="41" y="155" font-size="16" text-anchor="middle">\u{1F3EA}</text>'
+     +'<circle cx="330" cy="70" r="15" fill="#FF2D6C"/><circle cx="330" cy="70" r="6" fill="#fff"/>';
+  }
+  if(kind==='mini'){
+    inner+='<circle cx="'+(w/2)+'" cy="'+(h/2)+'" r="26" fill="rgba(231,20,94,.12)"/>'
+     +'<circle cx="'+(w/2)+'" cy="'+(h/2)+'" r="9" fill="#E7145E" stroke="#fff" stroke-width="3"/>';
+  }
+  return '<svg viewBox="0 0 '+w+' '+h+'" width="100%" height="100%" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg"><rect width="'+w+'" height="'+h+'" fill="#EDE9DF"/>'+inner+'</svg>';
+}
+let bigMapDone=false;
+function renderBigMap(){if(!bigMapDone){$('#bigmap').innerHTML=mapSVG(414,560,'big');bigMapDone=true}}
+function prepAddrForm(){
+  $('#minimap').innerHTML=mapSVG(414,130,'mini');
+  ['fHouse','fBuilding','fLandmark','fName','fPhone'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=''});
+  $('#saveAddrBtn').disabled=true;
+  document.querySelectorAll('#labelChips .lchip').forEach(c=>c.classList.toggle('on',c.dataset.label==='Other'));
+}
+
+/* =====================================================================
+   PAYMENT + ORDER FLOW
+   ===================================================================== */
+function proceedPay(){
+  closeSheet();go('processing');
+  setTimeout(()=>{
+    while(stack.length>1&&stack[stack.length-1]!=='cart')stack.pop();
+    show('cart');openSheet(sheetFailed(),true);
+  },2600);
+}
+let orderSnap=[],orderAmt=0,orderMode='cod',trackStage=0;
+const STAGES=[
+ ['Order placed','We have received your order'],
+ ['Order packed','Packed at the Shastri Nagar store'],
+ ['Rider on the way','Vikas picked up your order'],
+ ['Rider nearby','2 mins from your doorstep'],
+ ['Delivered','Enjoy! Rate your experience below']
+];
+function renderTimeline(){
+  $('#timeline').innerHTML=STAGES.map((s,i)=>{
+    const cls=i<trackStage?'done':(i===trackStage?'now':'');
+    return '<div class="tl-item '+cls+'"><span class="ln"></span><div class="dot">'+(i<trackStage?'\u2713':'')+'</div><div><b>'+s[0]+'</b><span>'+(i<=trackStage?s[1]:'')+'</span></div></div>';
+  }).join('');
+}
+function startTracking(mode){
+  orderSnap=[...cart.entries()];orderAmt=toPay();orderMode=mode;
+  cart.clear();couponApplied=null;updateAll();
+  const a=ADDRESSES[selAddr];
+  $('#trhead').classList.remove('done');
+  $('#trTitle').textContent='Arriving in 5 minutes';
+  $('#trAddr').textContent='Delivering to '+a.label+' \u00B7 '+a.line;
+  $('#trmapwrap').style.height='195px';
+  $('#trmap').innerHTML=mapSVG(386,195,'track');
+  const rid=$('#riderEmoji');rid.style.display='block';rid.style.animation='none';void rid.offsetWidth;rid.style.animation='';
+  $('#trItems').innerHTML=orderSnap.map(([id,q])=>{const p=P(id);
+    return '<div class="rowline" style="padding:7px 0"><div class="cicon" style="background:'+p.bg+';border:none">'+p.e+'</div><div class="grow"><div style="font-weight:700;font-size:14px">'+esc(p.name)+'</div><div class="t-sub" style="font-size:12px">'+esc(p.unit)+' \u00D7 '+q+'</div></div><b>'+money(p.price*q)+'</b></div>';}).join('');
+  $('#trPayMode').textContent=mode==='cod'?'Cash / UPI on delivery':'Paytm UPI (pending)';
+  $('#trPayAmt').textContent=money(orderAmt);
+  $('#rateCard').style.display='none';
+  document.querySelectorAll('#rateChips .rstar').forEach(s=>s.classList.remove('on'));
+  trackStage=0;renderTimeline();
+  clearInterval(trackTimer);
+  trackTimer=setInterval(()=>{
+    trackStage++;
+    if(trackStage>=STAGES.length){clearInterval(trackTimer);return}
+    renderTimeline();
+    const left=Math.max(1,5-trackStage);
+    if(trackStage<STAGES.length-1){$('#trTitle').textContent='Arriving in '+left+' minute'+(left>1?'s':'')}
+    else{
+      $('#trhead').classList.add('done');
+      $('#trTitle').textContent='Delivered in 6 minutes \u{1F389}';
+      $('#trAddr').textContent='Handed over safely \u00B7 No bag used \u{1F343}';
+      $('#riderEmoji').style.display='none';
+      $('#rateCard').style.display='block';
+    }
+  },2600);
+  go('track');
+}
+
+/* =====================================================================
+   SEARCH
+   ===================================================================== */
+function renderSearch(q){
+  q=(q||'').trim().toLowerCase();
+  const list=q?PRODUCTS.filter(p=>p.name.toLowerCase().includes(q)):byTag('feed').slice(0,8);
+  const head=q?'':'<div class="section-label" style="margin-top:12px">Trending near you</div>';
+  $('#searchResults').innerHTML=head+(list.length?list.map(p=>{
+    const off=p.mrp-p.price;
+    return '<div class="srow"><div class="img" style="background:'+p.bg+'">'+p.e+'</div>'
+     +'<div class="grow"><b>'+esc(p.name)+'</b><span>'+esc(p.unit)+'</span><div class="pr">'+money(p.price)+' '+(off>0?'<s class="mrp">'+money(p.mrp)+'</s> <span class="offtag">'+money(off)+' OFF</span>':'')+'</div></div>'
+     +'<div class="srow-slot" data-pid="'+p.id+'">'+stepHTML(p.id,true)+'</div></div>';
+  }).join(''):'<div class="emptycart" style="padding:60px 0"><div class="cup">\u{1F50D}</div><p>No results for &ldquo;'+esc(q)+'&rdquo;</p></div>');
+}
+
+/* =====================================================================
+   EVENTS — one delegated handler
+   ===================================================================== */
+function addToCart(id){cart.set(id,(cart.get(id)||0)+1);lastAdded=id;if(subtotal()>=FREE_MIN&&subtotal()-P(id).price<FREE_MIN)toast('Free delivery unlocked \u{1F389}');updateAll()}
+function decCart(id){const q=(cart.get(id)||0)-1;if(q<=0)cart.delete(id);else cart.set(id,q);updateAll()}
+
+document.addEventListener('click',e=>{
+  const catEl=e.target.closest('.cat');
+  if(catEl&&catEl.closest('#catRow')){
+    const c=catEl.dataset.cat;
+    if(c==='oos'){toast('Not part of this prototype scope');return}
+    homeCat=c;document.querySelectorAll('#catRow .cat').forEach(x=>x.classList.toggle('active',x===catEl));
+    renderFeed();return;
+  }
+  const star=e.target.closest('.rstar');
+  if(star){const n=+star.dataset.star;const w=star.closest('.ratewrap')||document;w.querySelectorAll('.rstar').forEach(s=>s.classList.toggle('on',+s.dataset.star<=n));toast('Thanks for rating '+n+'\u2B50');return}
+  const chip=e.target.closest('#labelChips .lchip');
+  if(chip){document.querySelectorAll('#labelChips .lchip').forEach(c=>c.classList.toggle('on',c===chip));return}
+  const el=e.target.closest('[data-act]');if(!el)return;
+  const act=el.dataset.act,pid=el.dataset.pid;
+  switch(act){
+    case 'back':back();break;
+    case 'go-home':goHome();break;
+    case 'back-home':clearInterval(trackTimer);if(window.__dlvT)clearTimeout(window.__dlvT);goHome();break;
+    case 'go-cart':itemCount()?go('cart'):toast('Your cart is empty');break;
+    case 'oos':toast('Not part of this prototype scope');break;
+    case 'oos-pay':toast('Mocked in this prototype \u2014 use Paytm UPI or COD');break;
+    case 'search-open':go('search');break;
+    case 'open-offers':if(typeof sheetOffers==='function')openSheet(sheetOffers());break;
+    case 'toggle-bag':noBag=!noBag;$('#bagCb').classList.toggle('off',!noBag);$('#bagCb').textContent=noBag?'\u2713':'';break;
+    case 'add':addToCart(pid);break;
+    case 'inc':addToCart(pid);break;
+    case 'dec':decCart(pid);break;
+    case 'rm':cart.delete(pid);updateAll();break;
+    case 'sheet-addr':openSheet(sheetAddress());break;
+    case 'sheet-how':e.stopPropagation();openSheet(sheetHow());break;
+    case 'sheet-code':openSheet(sheetCode());setTimeout(()=>{const i=$('#cpnInput');if(i)i.focus()},260);break;
+    case 'sheet-bill':openSheet(sheetBill());break;
+    case 'close-sheet':closeSheet();break;
+    case 'selAddr':selAddr=+el.dataset.i;updateHeaders();closeSheet();toast('Delivering to '+ADDRESSES[selAddr].label);if($('#s-cart').classList.contains('on'))renderCart();break;
+    case 'new-addr':closeSheet();go('map');break;
+    case 'confirm-loc':go('addr');break;
+    case 'save-addr':{
+      const h=$('#fHouse').value.trim(),b=$('#fBuilding').value.trim(),l=$('#fLandmark').value.trim();
+      const lab=(document.querySelector('#labelChips .lchip.on')||{dataset:{label:'Other'}}).dataset.label;
+      const line=[h,b,l].filter(Boolean).join(', ')+', Sector 4, Shastri Nagar, Meerut, Uttar Pradesh 250004, India';
+      ADDRESSES.push({label:lab,line:line,dist:'0.4 km'});selAddr=ADDRESSES.length-1;updateHeaders();
+      stack.pop();stack.pop();show(stack[stack.length-1]);toast('Address saved');break;}
+    case 'goto-coupons':couponSeg='coupons';go('coupons');break;
+    case 'seg-coupons':couponSeg='coupons';renderCoupons();break;
+    case 'seg-payoffers':couponSeg='pay';renderCoupons();break;
+    case 'fgrp':offerGrp=offerGrp===el.dataset.grp?null:el.dataset.grp;renderCoupons();break;
+    case 'knowmore':{const box=el.closest('.coupcard').querySelector('.tncbox');box.classList.toggle('open');break}
+    case 'apply-cart-coupon':couponApplied=el.dataset.code;toast('Coupon applied \u{1F389}');updateAll();if($('#s-coupons').classList.contains('on'))renderCoupons();break;
+    case 'uncoupon':couponApplied=null;toast('Coupon removed');updateAll();if($('#s-coupons').classList.contains('on'))renderCoupons();break;
+    case 'apply-offer':toast('Offer will auto-apply at payment');break;
+    case 'pay-online':openSheet(sheetPay());break;
+    case 'open-paysheet':openSheet(sheetPay());break;
+    case 'more-options':closeSheet();go('payopts');break;
+    case 'proceed':proceedPay();break;
+    case 'place-from-failed':closeSheet();setTimeout(()=>openSheet(sheetOrdering('online'),true),240);break;
+    case 'pay-cod':openSheet(sheetOrdering('cod'),true);break;
+    case 'cod':{const r=$('#codRadio');if(r)r.classList.add('on');setTimeout(()=>openSheet(sheetOrdering('cod'),true),300);break}
+    case 'place-now':{
+      if(el.classList.contains('filling'))break;
+      el.classList.add('filling');
+      setTimeout(()=>{closeSheet();startTracking(el.dataset.mode)},1650);break}
+    case 'code-apply':{
+      const inp=$('#cpnInput'),wrap=$('#cpnWrap'),err=$('#cpnErr');
+      const code=(inp.value||'').trim().toUpperCase();
+      const c=COUPONS.find(x=>x.code===code);
+      if(!c){err.textContent='This code is invalid or expired';wrap.classList.add('bad');break}
+      if(subtotal()<c.min){err.textContent='Add items worth '+money(c.min-subtotal())+' more to use '+c.code;wrap.classList.add('bad');break}
+      couponApplied=c.code;closeSheet();toast('Coupon applied \u{1F389}');updateAll();
+      if($('#s-coupons').classList.contains('on'))renderCoupons();break}
+  }
+});
+$('#overlay').addEventListener('click',e=>{if(e.target.id==='overlay'&&!$('#sheet').dataset.lock)closeSheet()});
+document.addEventListener('input',e=>{
+  if(e.target.id==='searchInput')renderSearch(e.target.value);
+  if(e.target.id==='fHouse')$('#saveAddrBtn').disabled=!e.target.value.trim();
+  if(e.target.id==='cpnInput'){$('#cpnApply').disabled=!e.target.value.trim();$('#cpnWrap').classList.remove('bad')}
+});
+document.addEventListener('focusin',e=>{if(e.target.dataset&&e.target.dataset.actFocus)toast('Search on map is mocked in this prototype')});
+
+/* =====================================================================
+   INIT
+   ===================================================================== */
+function tickClock(){const d=new Date();$('#sb-time').textContent=d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0')}
+let phIdx=0;
+function rotatePH(){phIdx=(phIdx+1)%SEARCH_HINTS.length;$('#phWord').textContent=SEARCH_HINTS[phIdx]}
+renderHomeRows();updateHeaders();updateFloat();
+tickClock();setInterval(tickClock,30000);
+phTimer=setInterval(rotatePH,2400);
+setInterval(()=>{dbFlip=!dbFlip;if($('#s-home').classList.contains('on'))updateFloat()},3600);
+</script>
+<style>
+/* ============ ZEPTO KITS — feature styles ============ */
+.kitcard{flex:0 0 150px;width:150px}
+.kitcover{height:100px;border-radius:16px;position:relative;display:flex;align-items:center;justify-content:center;font-size:44px;border:1px solid rgba(0,0,0,.05)}
+.kitcover.kitnew{background:#FFF5F8;border:2px dashed #F8B8CC;color:var(--pink);font-size:34px;font-weight:800}
+.kitbadge{position:absolute;top:8px;left:8px;background:#fff;border-radius:8px;font-size:9.5px;font-weight:800;padding:3px 7px;box-shadow:var(--shadow-card);color:#B4530A;letter-spacing:.01em}
+.kitbadge.ok{color:#156A2E}
+.kitbadge.pink{color:#DE1257}
+.kitcard b{display:block;font-size:14px;font-weight:800;margin-top:9px;line-height:1.25}
+.ksub{font-size:11.5px;color:var(--sub);font-weight:600;margin-top:2px}
+.hubtip{margin:12px 14px 4px;border-radius:16px;background:linear-gradient(120deg,#F3ECFF,#FDEFF6);border:1px solid #E9D9FA;padding:13px 15px;display:flex;gap:11px;align-items:center}
+.hubtip .em{font-size:26px}
+.hubtip b{font-size:13.5px;display:block}
+.hubtip span{font-size:12px;color:#5A5F6B;font-weight:600}
+.kitrow{background:#fff;border-radius:18px;margin:12px 14px;padding:14px;display:flex;gap:13px;box-shadow:var(--shadow-card);align-items:center;cursor:pointer}
+.kitrow .cv{width:62px;height:62px;border-radius:16px;font-size:30px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;border:1px solid rgba(0,0,0,.05)}
+.kitrow h4{font-size:16.5px;font-weight:800;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.kitrow p{font-size:12.5px;color:var(--sub);font-weight:600;margin-top:2px}
+.kitrow .est{font-size:12.5px;font-weight:800;margin-top:5px}
+.typechip{font-size:10px;font-weight:800;border-radius:7px;padding:3px 8px;letter-spacing:.03em}
+.typechip.routine{background:#EFE8FB;color:#5B21B6}
+.typechip.recipe{background:#FFF1E5;color:#B4530A}
+.typechip.occasion{background:#FDEFF4;color:#DE1257}
+.kit-hero{margin:12px 14px;border-radius:20px;padding:18px 16px;display:flex;gap:14px;align-items:center;border:1px solid rgba(0,0,0,.04)}
+.kit-hero .em{font-size:52px;line-height:1}
+.kit-hero h3{font-size:20px;font-weight:800;letter-spacing:-.02em}
+.kit-hero .meta{font-size:12.5px;color:#4A4462;font-weight:600;margin-top:2px}
+.kctl{margin:0 14px 6px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.servseg{background:#E9EBEF;border-radius:12px;padding:3px;display:flex}
+.servseg button{padding:8px 15px;border-radius:10px;font-weight:800;font-size:13.5px;color:#5A5F6B}
+.servseg button.on{background:#fff;color:var(--ink);box-shadow:var(--shadow-card)}
+.duechip{background:#FFF1E5;color:#B4530A;font-weight:800;font-size:12px;border-radius:10px;padding:8px 12px}
+.duechip.ok{background:#DFF0E4;color:#156A2E}
+.remtoggle{display:flex;align-items:center;gap:9px;background:#fff;border:1.5px solid var(--line);border-radius:12px;padding:8px 12px;font-weight:800;font-size:12.5px}
+.remtoggle .sw{width:36px;height:21px;border-radius:99px;background:#D7D9E0;position:relative;transition:.2s;flex:0 0 auto}
+.remtoggle .sw::after{content:'';position:absolute;top:2px;left:2px;width:17px;height:17px;border-radius:50%;background:#fff;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+.remtoggle.on .sw{background:#1F8A3D}
+.remtoggle.on .sw::after{left:17px}
+.kitem{display:flex;gap:11px;padding:13px 0;border-bottom:1px solid #F0F1F4;align-items:flex-start}
+.kitem:last-of-type{border-bottom:none}
+.kitem.off .kmid,.kitem.off .kimg,.kitem.off .kright{opacity:.42}
+.kitem.off .knm{text-decoration:line-through}
+.kchk{width:24px;height:24px;border-radius:8px;border:2px solid #C6CBD4;flex:0 0 auto;margin-top:12px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:800;background:#fff}
+.kchk.on{background:var(--pink);border-color:var(--pink)}
+.kimg{width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:24px;flex:0 0 auto;border:1px solid rgba(0,0,0,.04)}
+.kmid{flex:1;min-width:0}
+.knm{font-size:14.5px;font-weight:700;line-height:1.3}
+.kun{font-size:12px;color:var(--sub);font-weight:600;margin-top:2px}
+.brandchip{margin-top:7px;display:inline-flex;align-items:center;gap:5px;border:1.5px solid #E8D9F8;background:#F7F1FE;color:#5B21B6;font-weight:800;font-size:11.5px;border-radius:9px;padding:5px 9px}
+.kright{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex:0 0 auto}
+.kprice{font-size:14px;font-weight:800;color:var(--green)}
+.kprice s{color:#9AA0AC;font-weight:600;margin-right:5px;font-size:12px}
+.krm{width:26px;height:26px;border-radius:8px;color:#A6ABB5;font-size:16px;font-weight:800;display:flex;align-items:center;justify-content:center}
+.kadditem{margin:10px 0 2px;border:1.5px dashed #E0D3F6;color:#5B21B6;border-radius:14px;padding:13px;display:flex;align-items:center;justify-content:center;gap:8px;font-weight:800;font-size:14.5px;background:#FBF8FF;width:100%}
+.kitban{margin:12px 12px 0;background:linear-gradient(120deg,#F3ECFF,#FDEFF6);border:1px solid #E9D9FA;border-radius:16px;padding:12px 14px;display:flex;gap:11px;align-items:center}
+.kitban .em{font-size:26px}
+.kitban b{font-size:13.5px;display:block}
+.kitban span{font-size:11.5px;color:#5A5F6B;font-weight:600}
+.emorow{display:flex;gap:9px;flex-wrap:wrap;margin:14px 0 6px}
+.emo{width:48px;height:48px;border-radius:14px;background:#F4F5F7;display:flex;align-items:center;justify-content:center;font-size:24px;border:2px solid transparent}
+.emo.on{border-color:var(--pink);background:#FDEFF4}
+.nktype{display:flex;gap:9px;margin:6px 0 2px}
+.ideachips{display:flex;gap:9px;overflow-x:auto;padding:4px 14px 20px}
+.ideachip{flex:0 0 auto;border:1.5px solid var(--line);background:#fff;border-radius:12px;padding:10px 14px;font-weight:800;font-size:13px;display:flex;align-items:center;gap:7px}
+.pickrow{display:flex;align-items:center;gap:11px;padding:10px 0;border-bottom:1px solid #F0F1F4}
+.pickrow .img{width:44px;height:44px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:22px;flex:0 0 auto;border:1px solid rgba(0,0,0,.04)}
+.pickrow b{font-size:13.5px;display:block;line-height:1.25}
+.pickrow span{font-size:11.5px;color:var(--sub);font-weight:600}
+.pickadd{border:1.5px solid var(--pink);color:var(--pink);border-radius:10px;font-weight:800;font-size:13px;padding:7px 13px;background:#fff}
+.pickadd.done{border-color:#CBE7D2;color:#156A2E;background:#EAF6EC}
+</style>
+<script>
+/* =====================================================================
+   ZEPTO KITS — expanded catalog + one-tap reusable carts
+   (routine kits, recipe kits with serving scaler + brand swap,
+    occasion kits, save-cart/save-order as kit)
+   ===================================================================== */
+
+/* ---------- 1. EXPANDED CATALOG (~65 new SKUs) ---------- */
+const NEWP=[
+ // fresh — more veggies & fruits
+ {id:'pal5',e:'\u{1F96C}',bg:'#E9F6EA',name:'Palak (Spinach)',unit:'250 g',price:5,mrp:26,tags:['f5'],cat:'fresh'},
+ {id:'car5',e:'\u{1F955}',bg:'#FDEEE2',name:'Carrot Ooty',unit:'250 g',price:5,mrp:35,tags:['f5'],cat:'fresh'},
+ {id:'cps',e:'\u{1FAD1}',bg:'#EAF7E9',name:'Capsicum Green',unit:'250 g',price:32,mrp:58,tags:['feed'],cat:'fresh'},
+ {id:'bns',e:'\u{1FADB}',bg:'#E9F6EA',name:'Beans Haricot',unit:'250 g',price:28,mrp:54,tags:['feed'],cat:'fresh'},
+ {id:'brc',e:'\u{1F966}',bg:'#EFF7EC',name:'Broccoli',unit:'1 pc (250 - 350 g)',price:58,mrp:95,tags:['feed'],cat:'fresh'},
+ {id:'apl',e:'\u{1F34E}',bg:'#FDEAE8',name:'Apple Shimla',unit:'4 pcs',price:129,mrp:189,tags:['feed'],cat:'fresh'},
+ {id:'mng',e:'\u{1F96D}',bg:'#FFF3DB',name:'Mango Safeda',unit:'1 kg (2 - 3 pcs)',price:99,mrp:160,tags:['feed'],cat:'fresh'},
+ {id:'grp',e:'\u{1F347}',bg:'#EFEAF7',name:'Grapes Green Seedless',unit:'500 g',price:64,mrp:110,tags:['feed'],cat:'fresh'},
+ {id:'ppy',e:'\u{1F348}',bg:'#F0F7E6',name:'Papaya Semi-Ripe',unit:'1 pc (800 g - 1.2 kg)',price:52,mrp:88,tags:['feed'],cat:'fresh'},
+ {id:'wtm',e:'\u{1F349}',bg:'#FCE9E4',name:'Watermelon Kiran',unit:'1 pc (2 - 3 kg)',price:79,mrp:120,tags:['feed'],cat:'fresh'},
+ {id:'org',e:'\u{1F34A}',bg:'#FFF0DD',name:'Orange Imported',unit:'4 pcs',price:68,mrp:112,tags:['feed'],cat:'fresh'},
+ {id:'grl',e:'\u{1F9C4}',bg:'#F6F1E6',name:'Garlic',unit:'100 g',price:29,mrp:58,tags:['feed'],cat:'fresh'},
+ // dairy & eggs
+ {id:'egg',e:'\u{1F95A}',bg:'#FBF3E3',name:'Table White Eggs',unit:'6 pcs',price:54,mrp:60,tags:['feed'],cat:'dairy'},
+ {id:'chz',e:'\u{1F9C0}',bg:'#FFF4DE',name:'Amul Cheese Slices',unit:'10 slices (200 g)',price:135,mrp:145,tags:['feed'],cat:'dairy'},
+ {id:'pnm',e:'\u{1F9C0}',bg:'#EAF1FA',name:'Milky Mist Malai Paneer',unit:'1 pack (200 g)',price:99,mrp:115,tags:['feed'],cat:'dairy'},
+ // staples, masalas & kitchen
+ {id:'ric1',e:'\u{1F35A}',bg:'#F6F1E4',name:'Daawat Rozana Basmati Rice',unit:'1 pack (1 kg)',price:99,mrp:135,tags:['feed'],cat:'staples'},
+ {id:'ric2',e:'\u{1F35A}',bg:'#EFF2FA',name:'India Gate Feast Basmati Rice',unit:'1 pack (1 kg)',price:115,mrp:150,tags:['feed'],cat:'staples'},
+ {id:'ata2',e:'\u{1F33E}',bg:'#FDF3E0',name:'Fortune Chakki Fresh Atta',unit:'1 pack (5 kg)',price:289,mrp:342,tags:['feed'],cat:'staples'},
+ {id:'ata3',e:'\u{1F33E}',bg:'#EFF4FB',name:'Pillsbury Chakki Atta',unit:'1 pack (5 kg)',price:305,mrp:360,tags:['feed'],cat:'staples'},
+ {id:'oil1',e:'\u{1FAD7}',bg:'#FFF6DC',name:'Fortune Sunlite Sunflower Oil',unit:'1 L pouch',price:149,mrp:175,tags:['feed'],cat:'staples'},
+ {id:'oil2',e:'\u{1FAD7}',bg:'#FDF0E4',name:'Saffola Gold Blended Oil',unit:'1 L pouch',price:189,mrp:215,tags:['feed'],cat:'staples'},
+ {id:'slt',e:'\u{1F9C2}',bg:'#F0F4FA',name:'Tata Salt Iodised',unit:'1 kg',price:28,mrp:30,tags:['feed'],cat:'staples'},
+ {id:'bsn',e:'\u{1F33E}',bg:'#FFF2D9',name:'Rajdhani Besan',unit:'500 g',price:58,mrp:72,tags:['feed'],cat:'staples'},
+ {id:'poh',e:'\u{1F963}',bg:'#FBF2E4',name:'Thick Poha',unit:'500 g',price:45,mrp:55,tags:['feed'],cat:'staples'},
+ {id:'rj1',e:'\u{1FAD8}',bg:'#FBEDE6',name:'Tata Sampann Rajma Chitra',unit:'1 pack (500 g)',price:95,mrp:128,tags:['feed'],cat:'staples'},
+ {id:'rj2',e:'\u{1FAD8}',bg:'#EDF5EC',name:'24 Mantra Organic Rajma',unit:'1 pack (500 g)',price:129,mrp:149,tags:['feed'],cat:'staples'},
+ {id:'jee',e:'\u{1F9C2}',bg:'#F3EEE2',name:'Catch Cumin (Jeera) Whole',unit:'100 g',price:52,mrp:60,tags:['feed'],cat:'staples'},
+ {id:'elc',e:'\u{1FAD9}',bg:'#EDF5EC',name:'Green Cardamom (Elaichi)',unit:'20 g',price:95,mrp:120,tags:['feed'],cat:'staples'},
+ {id:'tur',e:'\u{1F33C}',bg:'#FFF4D6',name:'Tata Sampann Turmeric Powder',unit:'200 g',price:64,mrp:78,tags:['feed'],cat:'staples'},
+ {id:'grm',e:'\u{1F336}\u{FE0F}',bg:'#FBEDE6',name:'Everest Garam Masala',unit:'100 g',price:92,mrp:104,tags:['feed'],cat:'staples'},
+ {id:'mdh',e:'\u{1F336}\u{FE0F}',bg:'#FBE9E7',name:'MDH Rajma Masala',unit:'100 g',price:75,mrp:82,tags:['feed'],cat:'staples'},
+ {id:'evr',e:'\u{1F336}\u{FE0F}',bg:'#FFF3E0',name:'Everest Rajma Masala',unit:'100 g',price:68,mrp:75,tags:['feed'],cat:'staples'},
+ {id:'cch',e:'\u{1F336}\u{FE0F}',bg:'#FDECEF',name:'Catch Rajma Masala',unit:'100 g',price:72,mrp:80,tags:['feed'],cat:'staples'},
+ {id:'tea1',e:'\u{1F375}',bg:'#FBECE4',name:'Red Label Tea',unit:'250 g',price:135,mrp:150,tags:['feed'],cat:'cafe'},
+ {id:'tea2',e:'\u{1F375}',bg:'#EFEAF7',name:'Taj Mahal Tea',unit:'250 g',price:160,mrp:175,tags:['feed'],cat:'cafe'},
+ // beverages & party sips
+ {id:'tup',e:'\u{1F964}',bg:'#EDEFF4',name:'Thums Up',unit:'1.25 L',price:65,mrp:70,tags:['feed'],cat:'bev'},
+ {id:'ccl',e:'\u{1F964}',bg:'#FBECEC',name:'Coca-Cola',unit:'1.25 L',price:65,mrp:70,tags:['feed'],cat:'bev'},
+ {id:'pep',e:'\u{1F964}',bg:'#EAF1FA',name:'Pepsi',unit:'1.25 L',price:60,mrp:65,tags:['feed'],cat:'bev'},
+ {id:'spr',e:'\u{1F964}',bg:'#E9F7EA',name:'Sprite',unit:'750 ml',price:40,mrp:45,tags:['feed'],cat:'bev'},
+ {id:'sod',e:'\u{1FAE7}',bg:'#EFF4FB',name:'Bisleri Club Soda',unit:'750 ml',price:25,mrp:30,tags:['feed'],cat:'bev'},
+ {id:'jui',e:'\u{1F9C3}',bg:'#FFF1DB',name:'Real Mango Juice',unit:'1 L',price:115,mrp:135,tags:['feed'],cat:'bev'},
+ {id:'ice',e:'\u{1F9CA}',bg:'#EAF4FC',name:'Ice Cubes Party Pack',unit:'1 kg',price:60,mrp:70,tags:['feed'],cat:'party'},
+ // snacks & chocolates
+ {id:'bng',e:'\u{1F35F}',bg:'#FBEDE0',name:'Bingo Mad Angles Achaari Masti',unit:'1 pack (66 g)',price:20,mrp:25,tags:['feed'],cat:'snack'},
+ {id:'kur',e:'\u{1F968}',bg:'#FFF1DE',name:'Kurkure Masala Munch',unit:'1 pack (75 g)',price:20,mrp:25,tags:['feed'],cat:'snack'},
+ {id:'bhj',e:'\u{1FAD9}',bg:'#FFF4D9',name:'Haldiram Aloo Bhujia',unit:'200 g',price:55,mrp:60,tags:['feed'],cat:'snack'},
+ {id:'pnt',e:'\u{1F95C}',bg:'#F8EFE0',name:'Masala Peanuts',unit:'200 g',price:35,mrp:45,tags:['feed'],cat:'snack'},
+ {id:'dms',e:'\u{1F36B}',bg:'#F1E8F8',name:'Cadbury Dairy Milk Silk',unit:'60 g',price:95,mrp:100,tags:['feed'],cat:'snack'},
+ {id:'kkt',e:'\u{1F36B}',bg:'#FBE9E7',name:'Nestle KitKat 4-Finger',unit:'1 pc (38 g)',price:35,mrp:40,tags:['feed'],cat:'snack'},
+ {id:'icf',e:'\u{1F368}',bg:'#F2EAE2',name:'Choco Chip Ice Cream Tub',unit:'700 ml',price:199,mrp:260,tags:['feed'],cat:'snack'},
+ {id:'icv',e:'\u{1F366}',bg:'#FDF3E4',name:'Amul Vanilla Magic Tub',unit:'700 ml',price:185,mrp:230,tags:['feed'],cat:'snack'},
+ // match day
+ {id:'nch',e:'\u{1F32E}',bg:'#FFF1DE',name:'Cornitos Nacho Crisps Cheese',unit:'150 g',price:99,mrp:120,tags:['feed'],cat:'match'},
+ {id:'sls',e:'\u{1F96B}',bg:'#FBEAE4',name:'Salsa Dip Mild',unit:'90 g',price:99,mrp:110,tags:['feed'],cat:'match'},
+ {id:'ffr',e:'\u{1F35F}',bg:'#FDF0DC',name:'Frozen French Fries',unit:'420 g',price:99,mrp:130,tags:['feed'],cat:'match'},
+ {id:'jsy',e:'\u{1F455}',bg:'#E7EEFB',name:'Team India Fan Jersey (Blue)',unit:'1 pc',price:799,mrp:1299,tags:['feed'],cat:'match'},
+ {id:'bat',e:'\u{1F3CF}',bg:'#F3EEE2',name:'Mini Cricket Bat & Ball Set',unit:'1 set',price:499,mrp:799,tags:['feed'],cat:'match'},
+ {id:'fpt',e:'\u{1F3A8}',bg:'#FDEFF4',name:'Tricolour Face Paint Kit',unit:'1 pc',price:99,mrp:149,tags:['feed'],cat:'match'},
+ // bakery & biscuits
+ {id:'bbr',e:'\u{1F35E}',bg:'#F6EDDF',name:'Whole Wheat Brown Bread',unit:'400 g',price:45,mrp:50,tags:['feed'],cat:'bakery'},
+ {id:'rsk',e:'\u{1F956}',bg:'#FBF0E1',name:'Premium Elaichi Rusk',unit:'300 g',price:45,mrp:55,tags:['feed'],cat:'bakery'},
+ {id:'mrg',e:'\u{1F36A}',bg:'#FDF3E4',name:'Britannia Marie Gold',unit:'250 g',price:35,mrp:40,tags:['feed'],cat:'snack'},
+ {id:'plg',e:'\u{1F36A}',bg:'#FFF4D9',name:'Parle-G Gold Family Pack',unit:'1 pack (500 g)',price:40,mrp:45,tags:['feed'],cat:'snack'},
+ // personal care
+ {id:'clg',e:'\u{1FAA5}',bg:'#FBEAE4',name:'Colgate Strong Teeth Paste',unit:'150 g',price:95,mrp:105,tags:['feed'],cat:'care'},
+ {id:'dov',e:'\u{1F9FC}',bg:'#EFF4FB',name:'Dove Cream Beauty Soap',unit:'100 g',price:55,mrp:62,tags:['feed'],cat:'care'},
+ {id:'dtl',e:'\u{1F9F4}',bg:'#E9F6EA',name:'Dettol Handwash Refill',unit:'200 ml',price:75,mrp:85,tags:['feed'],cat:'care'},
+ {id:'hns',e:'\u{1F9F4}',bg:'#EAF4FC',name:'Head & Shoulders Shampoo',unit:'180 ml',price:165,mrp:190,tags:['feed'],cat:'care'},
+ // home care & party supplies
+ {id:'srf',e:'\u{1F9FA}',bg:'#EAF1FA',name:'Surf Excel Matic Liquid',unit:'1 L',price:135,mrp:155,tags:['feed'],cat:'home'},
+ {id:'vim',e:'\u{1F9FD}',bg:'#F0F7E6',name:'Vim Dishwash Liquid Gel',unit:'500 ml',price:99,mrp:115,tags:['feed'],cat:'home'},
+ {id:'hpc',e:'\u{1F9F4}',bg:'#EAF4FC',name:'Harpic Toilet Cleaner',unit:'500 ml',price:92,mrp:104,tags:['feed'],cat:'home'},
+ {id:'gbg',e:'\u{1F5D1}\u{FE0F}',bg:'#EFF1F4',name:'Garbage Bags Medium',unit:'30 pcs',price:79,mrp:95,tags:['feed'],cat:'home'},
+ {id:'nap',e:'\u{1F9FB}',bg:'#F4F5F7',name:'Soft Tissue Napkins',unit:'100 pulls',price:45,mrp:55,tags:['feed'],cat:'home'},
+ {id:'ppl',e:'\u{1F37D}\u{FE0F}',bg:'#FBF0E4',name:'Paper Plates Sturdy',unit:'25 pcs',price:69,mrp:85,tags:['feed'],cat:'party'},
+ {id:'pcp',e:'\u{1F964}',bg:'#FDEFF4',name:'Paper Cups',unit:'50 pcs',price:59,mrp:70,tags:['feed'],cat:'party'},
+ {id:'bln',e:'\u{1F388}',bg:'#FDEFF4',name:'Balloons Multicolour',unit:'50 pcs',price:49,mrp:79,tags:['feed'],cat:'party'},
+ {id:'ppr',e:'\u{1F389}',bg:'#F1E8F8',name:'Party Poppers',unit:'4 pcs',price:99,mrp:129,tags:['feed'],cat:'party'},
+ // electronics
+ {id:'ebd',e:'\u{1F3A7}',bg:'#EDEFF4',name:'boAt Airdopes Earbuds',unit:'1 pc',price:899,mrp:1499,tags:['feed'],cat:'elec'},
+ {id:'cbl',e:'\u{1F50C}',bg:'#F4F5F7',name:'Type-C Fast Charging Cable',unit:'1 m',price:149,mrp:299,tags:['feed'],cat:'elec'},
+ {id:'pwb',e:'\u{1F50B}',bg:'#EAF1FA',name:'Power Bank 10000 mAh',unit:'1 pc',price:799,mrp:1299,tags:['feed'],cat:'elec'},
+ {id:'dur',e:'\u{1F50B}',bg:'#FFF4D9',name:'Duracell AA Batteries',unit:'4 pcs',price:199,mrp:240,tags:['feed'],cat:'elec'},
+ {id:'ext',e:'\u{1F50C}',bg:'#EFF1F4',name:'Extension Board 4-Socket',unit:'1 pc',price:349,mrp:499,tags:['feed'],cat:'elec'},
+ {id:'led',e:'\u{1F4A1}',bg:'#FFF6DC',name:'LED Bulb 9W Cool White',unit:'1 pc',price:79,mrp:120,tags:['feed'],cat:'elec'},
+ // fashion & living
+ {id:'sck',e:'\u{1F9E6}',bg:'#EFF1F4',name:'Cotton Ankle Socks',unit:'3 pairs',price:149,mrp:249,tags:['feed'],cat:'fashion'},
+ {id:'tsh',e:'\u{1F455}',bg:'#EAF4FC',name:'Crew Neck Cotton T-Shirt',unit:'1 pc',price:299,mrp:499,tags:['feed'],cat:'fashion'},
+ {id:'sld',e:'\u{1FA74}',bg:'#F0F7E6',name:'Comfort Slides',unit:'1 pair',price:249,mrp:399,tags:['feed'],cat:'fashion'},
+ {id:'cpb',e:'\u{1F9E2}',bg:'#FDEFF4',name:'Baseball Cap Solid',unit:'1 pc',price:199,mrp:349,tags:['feed'],cat:'fashion'},
+ {id:'twl',e:'\u{1F6C1}',bg:'#EAF4FC',name:'Cotton Bath Towel',unit:'1 pc',price:299,mrp:449,tags:['feed'],cat:'fashion'},
+ {id:'bsh',e:'\u{1F6CF}\u{FE0F}',bg:'#F1E8F8',name:'Double Bedsheet Set',unit:'1 set (3 pcs)',price:549,mrp:899,tags:['feed'],cat:'fashion'}
+];
+PRODUCTS.push.apply(PRODUCTS,NEWP);
+
+/* ---------- 2. BRAND VARIANT GROUPS (standard market pack sizes) ---------- */
+const VARGROUPS={
+ masalaRajma:{label:'Rajma Masala (100 g)',ids:['mdh','evr','cch']},
+ rajma:{label:'Rajma (500 g)',ids:['rj1','rj2']},
+ rice:{label:'Basmati Rice (1 kg)',ids:['ric1','ric2']},
+ atta:{label:'Atta (5 kg)',ids:['ata','ata2','ata3']},
+ oil:{label:'Cooking Oil (1 L)',ids:['oil1','oil2']},
+ milk:{label:'Milk (500 ml)',ids:['mlk','amg']},
+ tea:{label:'Tea (250 g)',ids:['tea1','tea2']},
+ cola:{label:'Cold Drink (1.25 L)',ids:['tup','ccl','pep']},
+ chips:{label:'Chips',ids:['lay','bng','kur']},
+ dahi:{label:'Curd',ids:['dhi','crd']},
+ paneer:{label:'Paneer (200 g)',ids:['pnr','pnm']},
+ detergent:{label:'Detergent',ids:['srf','fab']},
+ icecream:{label:'Ice Cream Tub (700 ml)',ids:['icf','icv']}
+};
+const PID2GRP={};
+Object.keys(VARGROUPS).forEach(function(g){VARGROUPS[g].ids.forEach(function(pid){PID2GRP[pid]=g})});
+
+/* ---------- 3. KITS DATA ---------- */
+function kIt(pid,qty){return {pid:pid,qty:qty||1,grp:PID2GRP[pid]||null,inc:true}}
+function kItOff(pid,qty){var o=kIt(pid,qty);o.inc=false;return o}
+let KITS=[
+ {id:'monthly',type:'routine',name:'Monthly Grocery',e:'\u{1F9FA}',bg:'#EFE8FB',desc:'Your month-end essentials, remembered',reminder:true,lastDays:26,
+  items:[kIt('ata'),kIt('dal'),kIt('ric1'),kIt('oil1'),kIt('sgr'),kIt('slt'),kIt('tea1'),kIt('poh'),kIt('bsn'),kIt('srf'),kIt('vim'),kIt('clg'),kIt('dov',2),kIt('hpc'),kIt('mgi'),kIt('bhj'),kIt('egg',2)]},
+ {id:'rajma',type:'recipe',name:'Rajma Chawal Kit',e:'\u{1F35B}',bg:'#FDEBE3',desc:'Everything for a hearty rajma chawal',serves:2,
+  items:[kIt('rj1'),kIt('ric1'),kIt('oni'),kIt('tml'),kIt('grl'),kIt('gng'),kIt('mdh'),kIt('ghe'),kIt('jee'),kIt('cor'),kItOff('dhi')]},
+ {id:'party',type:'occasion',name:'House Party Kit',e:'\u{1F389}',bg:'#FDEFF4',desc:'Snacks, sips & supplies for 8-10 guests',
+  items:[kIt('lay',2),kIt('nch'),kIt('sls'),kIt('tup',2),kIt('spr'),kIt('sod',2),kIt('pnt'),kIt('dms',2),kIt('icf'),kIt('ffr'),kIt('ppl'),kIt('pcp'),kIt('nap'),kIt('ice'),kIt('bln'),kIt('gbg')]},
+ {id:'chai',type:'recipe',name:'Chai Time Kit',e:'\u{2615}',bg:'#F2EAE2',desc:'Kadak chai + biskut, sorted',serves:2,
+  items:[kIt('tea1'),kIt('mlk'),kIt('sgr'),kIt('gng'),kIt('elc'),kIt('mrg'),kIt('rsk')]}
+];
+
+/* ---------- 4. KIT STATE + HELPERS ---------- */
+let curKitId=null, kitAppliedId=null, listCtx=null;
+let nkEmoji='\u{1F9FA}', nkType='occasion', nkSource={type:'blank'};
+const curKit=function(){return KITS.find(function(k){return k.id===curKitId})};
+function kitFactor(k){return k.type==='recipe'?(k.serves||2)/2:1}
+function kQty(it,f){return it.ovr!=null?it.ovr:Math.max(1,Math.round(it.qty*f))}
+function kitTotals(k){
+  var f=kitFactor(k),lines=0,units=0,price=0,mrp=0;
+  k.items.forEach(function(it){if(!it.inc)return;var p=P(it.pid),q=kQty(it,f);lines++;units+=q;price+=p.price*q;mrp+=p.mrp*q});
+  return {lines:lines,units:units,price:Math.round(price),mrp:Math.round(mrp)};
+}
+function brandShort(pid){return P(pid).name.split(' ')[0]}
+function typeChip(t){var l={routine:'Routine',recipe:'Recipe',occasion:'Occasion'}[t];return '<span class="typechip '+t+'">'+l+'</span>'}
+function dueBadge(k){
+  if(k.lastDays===0)return '<span class="kitbadge ok">Ordered today \u2713</span>';
+  var d=30-k.lastDays;
+  if(d<=0)return '<span class="kitbadge">Due today \u23F0</span>';
+  return '<span class="kitbadge">Due in '+d+' days</span>';
+}
+function dueText(k){
+  if(k.lastDays===0)return {cls:'ok',txt:'Ordered today \u2713 \u00B7 next nudge in 30 days'};
+  var d=30-k.lastDays;
+  if(d<=0)return {cls:'',txt:'\u23F0 Due today \u00B7 last ordered '+k.lastDays+' days ago'};
+  return {cls:'',txt:'\u23F0 Due in '+d+' days \u00B7 last ordered '+k.lastDays+' days ago'};
+}
+
+/* ---------- 5. HOOK INTO EXISTING ROUTER + RENDERERS ---------- */
+const __show=show;
+show=function(id){
+  __show(id);
+  if(id==='kits')renderKitsHub();
+  if(id==='kit')renderKitDetail();
+  if(id==='list')renderListScreen();
+};
+const __updateAll=updateAll;
+updateAll=function(){
+  if(itemCount()===0)kitAppliedId=null;
+  __updateAll();
+  renderKitsRail();
+  if(document.querySelector('#s-kit').classList.contains('on'))renderKitFoot();
+};
+renderFeed=function(){
+  var CATMAP={all:null,fresh:['fresh'],match:['match','snack','bev'],elec:['elec'],fashion:['fashion']};
+  var list=byTag('feed'),cats=CATMAP[homeCat];
+  if(cats)list=list.filter(function(p){return cats.indexOf(p.cat)>=0});
+  document.querySelector('#feedGrid').innerHTML=list.map(function(p){return pcard(p)}).join('');
+};
+
+/* ---------- 6. HOME RAIL ---------- */
+function renderKitsRail(){
+  var el=document.querySelector('#kitsRail');if(!el)return;
+  var cards=KITS.map(function(k){
+    var t=kitTotals(k);
+    var badge=k.type==='routine'?dueBadge(k):(k.type==='recipe'?'<span class="kitbadge ok">Serves '+(k.serves||2)+'</span>':'<span class="kitbadge pink">1-tap \u26A1</span>');
+    return '<div class="kitcard" data-act="open-kit" data-kit="'+k.id+'" style="cursor:pointer"><div class="kitcover" style="background:'+k.bg+'">'+badge+'<span>'+k.e+'</span></div><b>'+esc(k.name)+'</b><div class="ksub">'+t.lines+' items \u00B7 '+money(t.price)+'</div></div>';
+  }).join('');
+  cards+='<div class="kitcard" data-act="new-kit" style="cursor:pointer"><div class="kitcover kitnew">+</div><b style="color:#DE1257">New Kit</b><div class="ksub">Build your own</div></div>';
+  cards+='<div class="kitcard" data-act="open-kits" style="cursor:pointer"><div class="kitcover" style="background:#F4F5F7;font-size:26px;color:#5A5F6B;font-weight:800">\u203A</div><b>All Kits</b><div class="ksub">Manage &amp; edit</div></div>';
+  el.innerHTML=cards;
+}
+
+/* ---------- 7. KITS HUB ---------- */
+function renderKitsHub(){
+  var rows=KITS.map(function(k){
+    var t=kitTotals(k);
+    var sub=k.type==='routine'?dueText(k).txt:(k.type==='recipe'?'Serves '+(k.serves||2)+' \u00B7 scale anytime':esc(k.desc));
+    return '<div class="kitrow" data-act="open-kit" data-kit="'+k.id+'"><div class="cv" style="background:'+k.bg+'">'+k.e+'</div>'
+     +'<div class="grow"><h4>'+esc(k.name)+' '+typeChip(k.type)+'</h4><p>'+sub+'</p>'
+     +'<div class="est">'+t.lines+' items \u00B7 '+money(t.price)+' <span style="color:#1F8A3D">\u00B7 save '+money(t.mrp-t.price)+'</span></div></div>'
+     +'<svg class="chev" viewBox="0 0 24 24" fill="none"><path d="m9 6 6 6-6 6" stroke="#6E7280" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>';
+  }).join('');
+  document.querySelector('#kitsHubBody').innerHTML=
+   '<div class="hubtip"><span class="em">\u26A1</span><div><b>Whole carts, one tap</b><span>Build once \u00B7 swap brands \u00B7 reorder forever</span></div></div>'
+   +rows
+   +'<div class="addnew" data-act="new-kit" style="margin:14px;cursor:pointer"><span style="color:var(--pink);font-size:24px;font-weight:800">+</span><b>Create new kit</b><svg class="chev" viewBox="0 0 24 24" fill="none"><path d="m9 6 6 6-6 6" stroke="#1D1D29" stroke-width="2.4" stroke-linecap="round"/></svg></div>'
+   +'<div class="section-label" style="margin-top:18px">Ideas for your next kit</div>'
+   +'<div class="ideachips">'
+    +'<button class="ideachip" data-act="new-kit" data-tpl="pooja" data-name="Pooja Kit" data-e="\u{1FA94}">\u{1FA94} Pooja Kit</button>'
+    +'<button class="ideachip" data-act="new-kit" data-tpl="movie" data-name="Movie Night" data-e="\u{1F37F}">\u{1F37F} Movie Night</button>'
+    +'<button class="ideachip" data-act="new-kit" data-tpl="tiffin" data-name="Tiffin Prep" data-e="\u{1F371}">\u{1F371} Tiffin Prep</button>'
+    +'<button class="ideachip" data-act="new-kit" data-tpl="guest" data-name="Guest Arrival" data-e="\u{1F6CE}\u{FE0F}">\u{1F6CE}\u{FE0F} Guest Arrival</button>'
+    +'<button class="ideachip" data-act="new-kit" data-tpl="match" data-name="Match Day" data-e="\u{1F3CF}">\u{1F3CF} Match Day</button>'
+   +'</div>';
+}
+
+/* ---------- 8. KIT DETAIL ---------- */
+function kitItemRow(it,i,f){
+  var p=P(it.pid),q=kQty(it,f),off=p.mrp>p.price;
+  var brand=it.grp?'<button class="brandchip" data-act="kit-swap" data-i="'+i+'">'+esc(brandShort(it.pid))+' \u00B7 Swap \u25BE</button>':'';
+  return '<div class="kitem'+(it.inc?'':' off')+'">'
+   +'<button class="kchk'+(it.inc?' on':'')+'" data-act="kit-toggle" data-i="'+i+'">'+(it.inc?'\u2713':'')+'</button>'
+   +'<div class="kimg" style="background:'+p.bg+'">'+p.e+'</div>'
+   +'<div class="kmid"><div class="knm">'+esc(p.name)+'</div><div class="kun">'+esc(p.unit)+(q>1?' \u00D7 '+q:'')+'</div>'+brand+'</div>'
+   +'<div class="kright"><div class="stepper lite sm"><button data-act="kit-dec" data-i="'+i+'">\u2212</button><span class="q">'+q+'</span><button data-act="kit-inc" data-i="'+i+'">+</button></div>'
+   +'<div class="kprice">'+(off?'<s>'+money(p.mrp*q)+'</s>':'')+money(Math.round(p.price*q))+'</div>'
+   +'<button class="krm" data-act="kit-remove" data-i="'+i+'" title="Remove">\u00D7</button></div></div>';
+}
+function renderKitDetail(){
+  var k=curKit();if(!k){back();return}
+  var t=kitTotals(k),f=kitFactor(k);
+  document.querySelector('#kitTitle').textContent=k.name;
+  document.querySelector('#kitSubtitle').textContent=(k.type==='routine'?'Routine kit':k.type==='recipe'?'Recipe kit \u00B7 serves '+(k.serves||2):'Occasion kit')+' \u00B7 '+t.lines+' items';
+  var ctl='';
+  if(k.type==='recipe'){
+    ctl='<span style="font-weight:800;font-size:14px">Servings</span><div class="servseg">'
+      +[2,4,6].map(function(s){return '<button class="'+((k.serves||2)===s?'on':'')+'" data-act="kit-serves" data-s="'+s+'">'+s+'</button>'}).join('')
+      +'</div><span class="t-sub" style="font-size:11.5px">Packs scale in standard sizes</span>';
+  }else if(k.type==='routine'){
+    var d=dueText(k);
+    ctl='<div class="duechip '+d.cls+'">'+d.txt+'</div>'
+      +'<button class="remtoggle'+(k.reminder?' on':'')+'" data-act="kit-reminder">Monthly reminder<span class="sw"></span></button>';
+  }else{
+    ctl='<div class="duechip ok">\u{1F388} Ready for your next bash</div>';
+  }
+  document.querySelector('#kitBody').innerHTML=
+   '<div class="kit-hero" style="background:'+k.bg+'"><span class="em">'+k.e+'</span><div><h3>'+esc(k.name)+'</h3><div class="meta">'+esc(k.desc)+'</div>'
+   +'<div class="meta" style="margin-top:5px;font-weight:800;color:#156A2E">You save '+money(t.mrp-t.price)+' vs MRP on this kit</div></div></div>'
+   +'<div class="kctl">'+ctl+'</div>'
+   +'<div class="cardsec" style="margin-top:8px"><div class="t-strong" style="font-size:16px;margin-bottom:2px">Items in this kit</div>'
+   +'<div class="t-sub" style="font-size:12px;margin-bottom:4px">Untick to skip this time \u00B7 swap brands anytime</div>'
+   +k.items.map(function(it,i){return kitItemRow(it,i,f)}).join('')
+   +'<button class="kadditem" data-act="kit-additem">+ Add item to kit</button></div>'
+   +'<div style="height:96px"></div>';
+  renderKitFoot();
+}
+function renderKitFoot(){
+  var k=curKit();if(!k)return;
+  var t=kitTotals(k);
+  document.querySelector('#kitFootAmt').textContent=money(t.price);
+  document.querySelector('#kitAddSub').textContent=t.units+' items \u00B7 saving '+money(t.mrp-t.price);
+  document.querySelector('#kitAddBtn').disabled=t.lines===0;
+}
+
+/* ---------- 9. GENERIC LISTING (See all) ---------- */
+const LISTDEFS={
+ fresh:{title:'Fresh picks near you',filter:function(p){return p.cat==='fresh'}},
+ deals:{title:'Deals starting at \u20B99',filter:function(p){return p.tags.indexOf('deal')>=0||(p.price<=49&&(p.cat==='snack'||p.cat==='care'))}}
+};
+function renderListScreen(){
+  if(!listCtx)return;
+  document.querySelector('#listTitle').textContent=listCtx.title;
+  document.querySelector('#listCount').textContent=listCtx.items.length+' products \u00B7 delivered in minutes';
+  document.querySelector('#listGrid').innerHTML=listCtx.items.map(function(p){return pcard(p)}).join('');
+}
+
+/* ---------- 10. SHEETS ---------- */
+function sheetBrand(i){
+  var k=curKit(),it=k.items[i],g=VARGROUPS[it.grp];
+  var rows=g.ids.map(function(pid){
+    var p=P(pid),on=pid===it.pid;
+    return '<div class="payrow" data-act="pick-brand" data-i="'+i+'" data-pid="'+pid+'" style="cursor:pointer;padding:13px 0">'
+     +'<div class="paylogo" style="background:'+p.bg+';border:none;font-size:22px">'+p.e+'</div>'
+     +'<div class="grow"><h5 style="font-size:15px">'+esc(p.name)+(on?' <span class="newbadge">IN KIT</span>':'')+'</h5><p>'+esc(p.unit)+' \u00B7 <b style="color:#1F8A3D">'+money(p.price)+'</b> <s style="color:#9AA0AC">'+money(p.mrp)+'</s></p></div>'
+     +'<span class="radio'+(on?' on':'')+'"></span></div>';
+  }).join('');
+  return '<div class="sheet-pad"><div class="sheet-title" style="font-size:19px">Choose brand</div>'
+   +'<div class="sheet-sub">'+esc(g.label)+' \u00B7 standard market pack sizes</div>'
+   +'<div style="height:6px"></div>'+rows+'</div>';
+}
+function sheetKitInfo(){
+  return '<div class="sheet-pad"><div class="grabber"></div><div class="how-hero">\u{1F9FA}</div>'
+   +'<div class="sheet-title" style="text-align:center">How Kits work</div>'
+   +'<p class="sheet-sub" style="text-align:center">Build a cart once. Order it forever, in one tap.</p>'
+   +'<div class="howrow"><span class="em">\u26A1</span><p><b>One-tap ordering</b> \u2014 your whole kit lands in the cart together, ready for checkout</p></div>'
+   +'<div class="howrow"><span class="em">\u{1F501}</span><p><b>Fully yours</b> \u2014 swap brands (MDH \u2192 Everest), tweak quantities, or skip items each time</p></div>'
+   +'<div class="howrow"><span class="em">\u{1F372}</span><p><b>Recipe kits scale by servings</b>, in standard pack sizes \u2014 no odd half-bottles</p></div>'
+   +'<div class="howrow"><span class="em">\u{1F5D3}\u{FE0F}</span><p><b>Routine kits nudge you</b> when they are due \u2014 month-end shopping in 30 seconds</p></div>'
+   +'<button class="btn btn-pink btn-big" data-act="close-sheet" style="margin-top:18px">Got it</button></div>';
+}
+const NKEMOJIS=['\u{1F9FA}','\u{1F35B}','\u{1F389}','\u2615','\u{1FA94}','\u{1F37F}','\u{1F371}','\u{1F37C}','\u{1F3CF}','\u{1F9C1}'];
+function sheetNewKit(prefName){
+  var srcTxt=nkSource.type==='cart'?nkSource.lines.length+' items will be copied from your cart'
+    :nkSource.type==='order'?nkSource.lines.length+' items will be copied from this order'
+    :nkSource.type==='tpl'?NKTPL[nkSource.tpl].items.length+' curated items included \u2014 tweak anytime'
+    :'Start blank and add items next';
+  var emos=NKEMOJIS.map(function(e){return '<button class="emo'+(e===nkEmoji?' on':'')+'" data-act="nk-emoji" data-e="'+e+'">'+e+'</button>'}).join('');
+  var types=[['routine','\u{1F5D3}\u{FE0F} Routine'],['recipe','\u{1F372} Recipe'],['occasion','\u{1F389} Occasion']].map(function(t){
+    return '<button class="lchip'+(nkType===t[0]?' on':'')+'" data-nk-type="'+t[0]+'">'+t[1]+'</button>'}).join('');
+  return '<div class="sheet-pad"><div class="sheet-title" style="font-size:20px">Create a Kit</div>'
+   +'<div class="sheet-sub">'+srcTxt+'</div>'
+   +'<div class="flt" style="margin:18px 0 6px"><label>Kit name</label><input id="nkName" placeholder="e.g. Weekend Party, Maa&rsquo;s List" value="'+esc(prefName||'')+'" autocomplete="off"></div>'
+   +'<div class="emorow">'+emos+'</div>'
+   +'<div style="font-weight:800;font-size:14px;margin-top:10px">Kit type</div>'
+   +'<div class="nktype">'+types+'</div>'
+   +'<button class="btn btn-pink btn-big" id="nkCreate" data-act="create-kit" style="margin-top:16px" '+(prefName?'':'disabled')+'>Create Kit</button></div>';
+}
+function pickRows(q){
+  q=(q||'').trim().toLowerCase();
+  var k=curKit(),inKit={};
+  if(k)k.items.forEach(function(it){inKit[it.pid]=1});
+  var list=PRODUCTS.filter(function(p){return !q||p.name.toLowerCase().indexOf(q)>=0}).slice(0,26);
+  if(!list.length)return '<div class="segnote" style="margin:26px 0">No products match &ldquo;'+esc(q)+'&rdquo;</div>';
+  return list.map(function(p){
+    var added=inKit[p.id];
+    return '<div class="pickrow"><div class="img" style="background:'+p.bg+'">'+p.e+'</div>'
+     +'<div class="grow"><b>'+esc(p.name)+'</b><span>'+esc(p.unit)+' \u00B7 '+money(p.price)+'</span></div>'
+     +(added?'<button class="pickadd done">\u2713 Added</button>':'<button class="pickadd" data-act="kit-pick" data-pid="'+p.id+'">+ Add</button>')+'</div>';
+  }).join('');
+}
+function sheetKitPicker(){
+  return '<div class="sheet-pad"><div class="sheet-title" style="font-size:20px">Add items to kit</div>'
+   +'<div class="field" style="margin:14px 0;height:52px"><input id="kitSearch" placeholder="Search atta, masala, coke..." autocomplete="off"></div>'
+   +'<div id="kitPickList" style="max-height:44vh;overflow-y:auto">'+pickRows('')+'</div>'
+   +'<button class="btn btn-pink btn-big" data-act="close-sheet" style="margin-top:14px;height:50px">Done</button></div>';
+}
+
+/* ---------- 11. CART BANNER + ADD-TO-CART ---------- */
+function kitBanner(){
+  if(!kitAppliedId)return '';
+  var k=KITS.find(function(x){return x.id===kitAppliedId});
+  if(!k)return '';
+  return '<div class="kitban"><span class="em">'+k.e+'</span><div class="grow"><b>'+esc(k.name)+' added to this cart</b><span>Tweak quantities here, or edit the kit for next time</span></div>'
+   +'<button class="linkpink" data-act="kit-banner-open" style="font-size:13px">Edit Kit</button>'
+   +'<button class="krm" data-act="kit-banner-x">\u00D7</button></div>';
+}
+function addKitToCart(){
+  var k=curKit();if(!k)return;
+  var f=kitFactor(k),added=0;
+  k.items.forEach(function(it){
+    if(!it.inc)return;
+    var q=kQty(it,f);
+    cart.set(it.pid,(cart.get(it.pid)||0)+q);
+    lastAdded=it.pid;added+=q;
+  });
+  if(!added){toast('Tick at least one item first');return}
+  if(k.type==='routine')k.lastDays=0;
+  kitAppliedId=k.id;
+  updateAll();
+  toast('\u201C'+k.name+'\u201D added \u00B7 '+added+' items \u{1F6D2}');
+  setTimeout(function(){go('cart')},420);
+}
+
+/* ---------- 12. EVENTS (second delegated handler for kit acts) ---------- */
+document.addEventListener('click',function(e){
+  var tch=e.target.closest('[data-nk-type]');
+  if(tch){nkType=tch.dataset.nkType;document.querySelectorAll('[data-nk-type]').forEach(function(c){c.classList.toggle('on',c===tch)});return}
+  var el=e.target.closest('[data-act]');if(!el)return;
+  var act=el.dataset.act,i=+el.dataset.i,k=curKit();
+  switch(act){
+    case 'see-all':{
+      var d=LISTDEFS[el.dataset.key];if(!d)break;
+      listCtx={title:d.title,items:PRODUCTS.filter(d.filter)};
+      go('list');break}
+    case 'open-kits':go('kits');break;
+    case 'open-kit':curKitId=el.dataset.kit;go('kit');break;
+    case 'kit-info':openSheet(sheetKitInfo());break;
+    case 'new-kit':{
+      var tpl=(el.dataset.tpl&&typeof NKTPL!=='undefined')?NKTPL[el.dataset.tpl]:null;
+      if(tpl){nkSource={type:'tpl',tpl:el.dataset.tpl};nkType=tpl.type;nkEmoji=tpl.e;openSheet(sheetNewKit(tpl.name))}
+      else{nkSource={type:'blank'};nkType='occasion';nkEmoji=el.dataset.e||'\u{1F9FA}';openSheet(sheetNewKit(el.dataset.name||''))}
+      setTimeout(function(){var f=document.querySelector('#nkName');if(f&&!f.value)f.focus()},260);break}
+    case 'save-cart-kit':
+      if(itemCount()===0){toast('Your cart is empty');break}
+      nkSource={type:'cart',lines:Array.from(cart.entries())};nkType='routine';nkEmoji='\u{1F9FA}';
+      openSheet(sheetNewKit(''));
+      setTimeout(function(){var f=document.querySelector('#nkName');if(f)f.focus()},260);break;
+    case 'save-order-kit':
+      if(!orderSnap.length){toast('No items in this order');break}
+      nkSource={type:'order',lines:orderSnap.slice()};nkType='routine';nkEmoji='\u{1F9FA}';
+      openSheet(sheetNewKit(''));
+      setTimeout(function(){var f=document.querySelector('#nkName');if(f)f.focus()},260);break;
+    case 'nk-emoji':
+      nkEmoji=el.dataset.e;
+      document.querySelectorAll('.emo').forEach(function(c){c.classList.toggle('on',c===el)});break;
+    case 'create-kit':{
+      var nm=(document.querySelector('#nkName').value||'').trim();
+      if(!nm)break;
+      var tplRef=(nkSource.type==='tpl'&&typeof NKTPL!=='undefined')?NKTPL[nkSource.tpl]:null;
+      var items=tplRef?tplRef.items.map(function(pr){return kIt(pr[0],pr[1]||1)}):(nkSource.lines||[]).map(function(pr){return kIt(pr[0],pr[1])});
+      var nk={id:'u'+Date.now(),type:nkType,name:nm,e:nkEmoji,bg:'#F1E8F8',desc:tplRef?tplRef.desc:(nkType==='recipe'?'Your recipe, your brands':'Custom kit \u00B7 made by you'),items:items};
+      if(nkType==='recipe')nk.serves=2;
+      if(nkType==='routine'){nk.reminder=true;nk.lastDays=(nkSource.type==='cart'||nkSource.type==='order')?0:30}
+      KITS.push(nk);closeSheet();renderKitsRail();
+      if(document.querySelector('#s-kits').classList.contains('on'))renderKitsHub();
+      toast('\u201C'+nm+'\u201D saved to Your Kits \u2728');
+      if(nkSource.type==='blank'){curKitId=nk.id;setTimeout(function(){go('kit')},320)}
+      break}
+    case 'kit-serves':k.serves=+el.dataset.s;renderKitDetail();break;
+    case 'kit-reminder':
+      k.reminder=!k.reminder;renderKitDetail();
+      toast(k.reminder?'We\u2019ll nudge you when it\u2019s due \u{1F514}':'Reminder off');break;
+    case 'kit-toggle':k.items[i].inc=!k.items[i].inc;renderKitDetail();break;
+    case 'kit-inc':{var fA=kitFactor(k);k.items[i].ovr=kQty(k.items[i],fA)+1;renderKitDetail();break}
+    case 'kit-dec':{var fB=kitFactor(k),cB=kQty(k.items[i],fB);
+      if(cB>1){k.items[i].ovr=cB-1;renderKitDetail()}else{toast('Minimum 1 \u2014 tap \u2715 to remove')}
+      break}
+    case 'kit-remove':k.items.splice(i,1);renderKitDetail();toast('Removed from kit');break;
+    case 'kit-swap':openSheet(sheetBrand(i));break;
+    case 'pick-brand':
+      k.items[+el.dataset.i].pid=el.dataset.pid;
+      closeSheet();renderKitDetail();
+      toast('Switched to '+brandShort(el.dataset.pid));break;
+    case 'kit-additem':
+      openSheet(sheetKitPicker());
+      setTimeout(function(){var f=document.querySelector('#kitSearch');if(f)f.focus()},260);break;
+    case 'kit-pick':
+      k.items.push(kIt(el.dataset.pid,1));
+      el.outerHTML='<button class="pickadd done">\u2713 Added</button>';
+      renderKitDetail();break;
+    case 'kit-add-cta':addKitToCart();break;
+    case 'kit-delete':
+      KITS=KITS.filter(function(x){return x.id!==curKitId});
+      toast('Kit deleted');renderKitsRail();back();break;
+    case 'kit-banner-open':curKitId=kitAppliedId;go('kit');break;
+    case 'kit-banner-x':kitAppliedId=null;renderCart();break;
+  }
+});
+document.addEventListener('input',function(e){
+  if(e.target.id==='nkName'){var b=document.querySelector('#nkCreate');if(b)b.disabled=!e.target.value.trim()}
+  if(e.target.id==='kitSearch'){var l=document.querySelector('#kitPickList');if(l)l.innerHTML=pickRows(e.target.value)}
+});
+
+/* ---------- 13. BOOT ---------- */
+renderHomeRows();
+renderKitsRail();
+updateSteppers();
+</script>
+
+<style>
+/* ---- compact float bar + cart ---- */
+.floatwrap{bottom:70px}
+.offers-pill{width:auto;min-width:0;padding:3px 12px;font-size:11px;margin:0 auto -10px;border-radius:10px}
+.darkbar{padding:8px 12px;min-height:52px;border-radius:16px;gap:10px}
+#dbIcon{width:30px;height:30px;font-size:15px;border-radius:10px}
+#dbTitle{font-size:13.5px}
+#dbSub{font-size:11.5px}
+.cartbtn{min-width:102px;padding:0 12px;border-radius:16px}
+#cartCount{font-size:11px}
+.cardsec{margin:10px 12px;padding:13px 14px;border-radius:16px}
+.citem{padding:9px 0}
+.savebar{padding:7px 10px;font-size:12.5px}
+.deliv-h .clock{width:38px;height:38px}
+.deliv-h h4{font-size:16px}
+.kitban{margin:10px 12px 0;padding:10px 12px}
+/* ---- schedule screen ---- */
+.schedban{margin:12px 14px;background:linear-gradient(135deg,#EFE4FB,#E7D9F8);border-radius:20px;padding:20px 16px;text-align:center}
+.schedban h3{font-size:22px;font-weight:800;color:#5B21B6;letter-spacing:-.02em}
+.planrow{display:flex;gap:10px;justify-content:center;margin-top:14px;flex-wrap:wrap}
+.planchip{background:rgba(255,255,255,.72);border-radius:99px;padding:9px 14px;font-weight:800;font-size:13px;color:#4C1D95;display:flex;align-items:center;gap:7px}
+.shiphead{display:flex;gap:11px;align-items:center;margin-bottom:12px}
+.thumbs{display:grid;grid-template-columns:26px 26px;grid-gap:3px;flex:0 0 auto}
+.thumbs .t{width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:14px;border:1px solid rgba(0,0,0,.05)}
+.thumbs .more{background:#F1F3F5;font-size:10px;font-weight:800;color:#5A5F6B}
+.shiphead h4{font-size:17px;font-weight:800;display:flex;align-items:center;gap:8px}
+.shiptag{font-size:11px;font-weight:800;background:#F1F3F5;border-radius:7px;padding:3px 8px;color:#3F4451}
+.shiphead p{font-size:13px;color:var(--sub);font-weight:700;margin-top:2px}
+.shiphead a{color:var(--pink);font-weight:800;cursor:pointer}
+.moderow{display:flex;gap:10px}
+.modecard{flex:1;border:1.5px solid var(--line);border-radius:14px;padding:12px;text-align:left;display:flex;align-items:center;gap:8px;background:#fff}
+.modecard .tx{flex:1;min-width:0}
+.modecard b{font-size:14.5px;display:block}
+.modecard span{font-size:11.5px;color:var(--sub);font-weight:700;display:block;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.modecard .em{font-size:18px}
+.modecard.oni{background:#F0FAF2;border-color:#79C98B}
+.modecard.ons{background:#FFF8EC;border-color:#F0B24A}
+.daytabs{display:flex;margin-top:16px;border-bottom:1.5px solid #EDEEF2}
+.daytab{flex:1;text-align:center;padding:8px 0 10px;position:relative}
+.daytab b{font-size:15px;color:#7A7F8C;display:block}
+.daytab span{font-size:12px;color:#A0A5B1;font-weight:700}
+.daytab.on b,.daytab.on span{color:var(--pink)}
+.daytab.on::after{content:'';position:absolute;left:0;right:0;bottom:-1.5px;height:3px;background:var(--pink);border-radius:3px}
+.slotlbl{display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:800;letter-spacing:.06em;color:#8B90A0;margin:16px 0 10px}
+.slotgrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.slot{border:1.5px solid var(--line);border-radius:13px;padding:14px 4px;font-size:15px;font-weight:700;background:#fff;color:#3F4451}
+.slot.on{border-color:var(--pink);color:var(--pink);font-weight:800;background:#FFF5F8}
+.moreslots{display:flex;align-items:center;justify-content:center;gap:6px;color:var(--pink);font-weight:800;font-size:15px;margin:16px auto 4px;width:100%}
+.infoline{display:flex;gap:9px;align-items:center;background:#EAF2FC;border-radius:12px;padding:9px 12px;font-size:12.5px;font-weight:700;color:#2B3A55}
+.infoline .i{width:17px;height:17px;border-radius:50%;background:#2F7BE5;color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-style:italic}
+.calic{width:44px;height:44px;border-radius:12px;background:#EEF6F0;display:flex;align-items:center;justify-content:center;position:relative;font-size:20px;flex:0 0 auto}
+.calic::after{content:'\2713';position:absolute;right:-3px;bottom:-3px;width:16px;height:16px;border-radius:50%;background:#1F8A3D;color:#fff;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;border:2px solid #fff}
+.shipitem{display:flex;gap:12px;align-items:center;border:1.5px solid #EDEEF2;border-radius:14px;padding:10px 12px;margin-top:10px}
+.shipitem .img{width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:22px;flex:0 0 auto}
+.shipitem b{font-size:14.5px;display:block}
+.shipitem span{font-size:12px;color:var(--sub);font-weight:600}
+/* ---- offers-for-you sheet (dark) ---- */
+#sheet:has(.offersheet){background:#111318}
+.offersheet{color:#E9EBEF;padding:18px 16px 22px;position:relative}
+.offersheet h3{font-size:19px;font-weight:800;margin-bottom:14px}
+.offx{position:absolute;top:14px;right:12px;width:32px;height:32px;border-radius:50%;background:#22262E;color:#fff;font-size:14px;display:flex;align-items:center;justify-content:center}
+.offrow{display:flex;gap:12px;margin-bottom:12px}
+.offnode{width:26px;display:flex;flex-direction:column;align-items:center;flex:0 0 auto}
+.offnode .dot{width:24px;height:24px;border-radius:50%;background:#2A2F38;color:#9AA0AC;display:flex;align-items:center;justify-content:center;font-size:11px;flex:0 0 auto}
+.offnode .dot.done{background:#1F8A3D;color:#fff;font-weight:800}
+.offnode .ln{flex:1;width:2px;background:#2A2F38;margin-top:4px}
+.offrow:last-child .offnode .ln{display:none}
+.offcard{flex:1;border-radius:14px;padding:13px 14px;background:#1B1F26;display:flex;flex-direction:column;gap:3px}
+.offcard b{font-size:15px}
+.offcard span{font-size:12.5px;color:#9AA0AC;font-weight:600}
+.offcard.done{background:linear-gradient(120deg,#14261B,#182A20);border:1px solid #1F4A2E}
+.offcard.done span{color:#7CC28E}
+.offcard.hot{background:#fff;border:2px solid #35B455}
+.offcard.hot b{color:#111}
+.offcard.hot span{color:#B4530A;font-weight:700}
+.offbar{height:5px;border-radius:5px;background:#E7E9ED;margin-top:8px;overflow:hidden}
+.offbar i{display:block;height:100%;background:#35B455;border-radius:5px}
+.offlock{margin-left:auto;font-size:12.5px;font-weight:800;background:#262B33;color:#8B90A0;border-radius:10px;padding:6px 12px;align-self:flex-start;flex:0 0 auto}
+.offcard.hot .offlock{background:#EFF1F4}
+.offapply{margin-left:auto;font-size:12.5px;font-weight:800;background:#1F8A3D;color:#fff;border-radius:10px;padding:6px 14px;align-self:flex-start;flex:0 0 auto}
+.offtop{display:flex;align-items:flex-start;gap:8px}
+.offtop .tx{flex:1;min-width:0}
+/* ---- delivered screen ---- */
+.dl-hero{background:linear-gradient(160deg,#DFF3E4,#F0E9FC);border-radius:0 0 28px 28px;padding:34px 20px 26px;text-align:center}
+.dl-check{width:64px;height:64px;border-radius:50%;background:#1F8A3D;color:#fff;font-size:30px;font-weight:800;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;box-shadow:0 10px 24px rgba(31,138,61,.35)}
+.dl-hero h2{font-size:24px;font-weight:800;letter-spacing:-.02em}
+.dl-hero p{font-size:13.5px;color:#3F4451;font-weight:700;margin-top:5px}
+.tiprow{display:flex;gap:9px;margin-top:12px}
+.tipchip{flex:1;border:1.5px solid var(--line);border-radius:12px;padding:11px 0;font-weight:800;font-size:14.5px;background:#fff}
+.tipchip.on{border-color:var(--pink);color:var(--pink);background:#FFF5F8}
+.dl-avatar{width:50px;height:50px;border-radius:50%;background:#EFE8FB;display:flex;align-items:center;justify-content:center;font-size:24px;flex:0 0 auto}
+/* ---- kit size chip ---- */
+.szchip{background:#FFF6E8;border-color:#F3DFC0;color:#9A5B00}
+.chiprow{display:flex;gap:7px;flex-wrap:wrap;margin-top:7px}
+.chiprow .brandchip{margin-top:0}
+.stepper .q.ovr{color:var(--pink-deep)}
+</style>
+<script>
+/* ================= ROUND 3: schedule flow, offers sheet, pack sizes, curated templates, delivered page ================= */
+
+/* ---- 1. pack-size families on existing + new SKUs ---- */
+var SIZEMETA={
+ ata:{fam:'aashir_atta',sz:'5 kg',szr:5000}, ata2:{fam:'fort_atta',sz:'5 kg',szr:5000},
+ ric1:{fam:'daawat',sz:'1 kg',szr:1000}, ric2:{fam:'igate',sz:'1 kg',szr:1000},
+ oil1:{fam:'fort_oil',sz:'1 L',szr:1000},
+ dal:{fam:'ts_toor',sz:'1 kg',szr:1000},
+ sgr:{fam:'parry_sgr',sz:'1 kg',szr:1000},
+ tea1:{fam:'rl_tea',sz:'250 g',szr:250}, tea2:{fam:'taj_tea',sz:'250 g',szr:250},
+ ghe:{fam:'nan_ghee',sz:'200 ml',szr:200},
+ srf:{fam:'surf',sz:'1 L',szr:1000},
+ mlk:{fam:'nan_milk',sz:'500 ml',szr:500}, amg:{fam:'amul_milk',sz:'500 ml',szr:500},
+ rj1:{fam:'ts_rajma',sz:'500 g',szr:500}
+};
+Object.keys(SIZEMETA).forEach(function(id){var p=P(id);if(p)Object.assign(p,SIZEMETA[id])});
+var NEWSZ=[
+ {id:'ata1k',e:'\u{1F33E}',bg:'#F9F1E3',name:'Aashirvaad High Fibre Multigrain Atta',unit:'1 pack (1 kg)',price:72,mrp:89,tags:['sz'],cat:'staples',fam:'aashir_atta',sz:'1 kg',szr:1000},
+ {id:'ata10',e:'\u{1F33E}',bg:'#F9F1E3',name:'Aashirvaad High Fibre Multigrain Atta',unit:'1 pack (10 kg)',price:615,mrp:760,tags:['sz'],cat:'staples',fam:'aashir_atta',sz:'10 kg',szr:10000},
+ {id:'ft1k',e:'\u{1F33E}',bg:'#FDF3E0',name:'Fortune Chakki Fresh Atta',unit:'1 pack (1 kg)',price:75,mrp:92,tags:['sz'],cat:'staples',fam:'fort_atta',sz:'1 kg',szr:1000},
+ {id:'ric1b5',e:'\u{1F35A}',bg:'#F6F1E4',name:'Daawat Rozana Basmati Rice',unit:'1 pack (5 kg)',price:465,mrp:560,tags:['sz'],cat:'staples',fam:'daawat',sz:'5 kg',szr:5000},
+ {id:'ric2b5',e:'\u{1F35A}',bg:'#EFF2FA',name:'India Gate Feast Basmati Rice',unit:'1 pack (5 kg)',price:525,mrp:610,tags:['sz'],cat:'staples',fam:'igate',sz:'5 kg',szr:5000},
+ {id:'oil1b5',e:'\u{1FAD7}',bg:'#FFF6DC',name:'Fortune Sunlite Sunflower Oil',unit:'5 L can',price:699,mrp:799,tags:['sz'],cat:'staples',fam:'fort_oil',sz:'5 L',szr:5000},
+ {id:'dal500',e:'\u{1FAD8}',bg:'#FFF2DC',name:'Tata Sampann Unpolished Toor Dal',unit:'1 pack (500 g)',price:79,mrp:112,tags:['sz'],cat:'staples',fam:'ts_toor',sz:'500 g',szr:500},
+ {id:'sgr5',e:'\u{1F35A}',bg:'#EFF2FA',name:"Parry's White Label Sugar",unit:'1 pack (5 kg)',price:259,mrp:310,tags:['sz'],cat:'staples',fam:'parry_sgr',sz:'5 kg',szr:5000},
+ {id:'tea1b5',e:'\u{1F375}',bg:'#FBECE4',name:'Red Label Tea',unit:'500 g',price:259,mrp:289,tags:['sz'],cat:'cafe',fam:'rl_tea',sz:'500 g',szr:500},
+ {id:'tea1k',e:'\u{1F375}',bg:'#FBECE4',name:'Red Label Tea',unit:'1 kg',price:499,mrp:545,tags:['sz'],cat:'cafe',fam:'rl_tea',sz:'1 kg',szr:1000},
+ {id:'tea2b5',e:'\u{1F375}',bg:'#EFEAF7',name:'Taj Mahal Tea',unit:'500 g',price:305,mrp:335,tags:['sz'],cat:'cafe',fam:'taj_tea',sz:'500 g',szr:500},
+ {id:'ghe500',e:'\u{1FAD9}',bg:'#FDF2E0',name:'Nandini Pure Ghee Pouch',unit:'500 ml',price:409,mrp:560,tags:['sz'],cat:'dairy',fam:'nan_ghee',sz:'500 ml',szr:500},
+ {id:'ghe1l',e:'\u{1FAD9}',bg:'#FDF2E0',name:'Nandini Pure Ghee Jar',unit:'1 L',price:789,mrp:1050,tags:['sz'],cat:'dairy',fam:'nan_ghee',sz:'1 L',szr:1000},
+ {id:'srf2',e:'\u{1F9FA}',bg:'#EAF1FA',name:'Surf Excel Matic Liquid',unit:'2 L',price:255,mrp:299,tags:['sz'],cat:'home',fam:'surf',sz:'2 L',szr:2000},
+ {id:'mlk1l',e:'\u{1F95B}',bg:'#EAF3FC',name:'Nandini Toned Fresh Milk | Pouch',unit:'1 pack (1 L)',price:47,mrp:47,tags:['sz'],cat:'dairy',fam:'nan_milk',sz:'1 L',szr:1000},
+ {id:'amg1l',e:'\u{1F95B}',bg:'#FBEFEF',name:'Amul Gold Full Cream Fresh Milk',unit:'1 pack (1 L)',price:67,mrp:67,tags:['sz'],cat:'dairy',fam:'amul_milk',sz:'1 L',szr:1000},
+ {id:'rj1k',e:'\u{1FAD8}',bg:'#FBEDE6',name:'Tata Sampann Rajma Chitra',unit:'1 pack (1 kg)',price:179,mrp:240,tags:['sz'],cat:'staples',fam:'ts_rajma',sz:'1 kg',szr:1000},
+ /* pooja & everyday extras for templates */
+ {id:'agb',e:'\u{1F56F}\u{FE0F}',bg:'#FDF0E4',name:'Sandal Incense Sticks (Agarbatti)',unit:'1 pack (40 sticks)',price:45,mrp:60,tags:['feed'],cat:'home'},
+ {id:'cmp',e:'\u{1FA94}',bg:'#FFF3DB',name:'Pure Camphor Tablets',unit:'50 g',price:59,mrp:75,tags:['feed'],cat:'home'},
+ {id:'wck',e:'\u{1F9F5}',bg:'#F4F5F7',name:'Cotton Wicks (Diya Batti)',unit:'1 pack (50 pcs)',price:25,mrp:35,tags:['feed'],cat:'home'},
+ {id:'flw',e:'\u{1F33C}',bg:'#FFF4D6',name:'Marigold Flowers (Genda)',unit:'250 g',price:49,mrp:80,tags:['feed'],cat:'fresh'},
+ {id:'mtc',e:'\u{1F525}',bg:'#FBEAE4',name:'Homelites Safety Matchbox',unit:'1 pc',price:10,mrp:12,tags:['feed'],cat:'home'}
+];
+PRODUCTS.push.apply(PRODUCTS,NEWSZ);
+var FAM={};
+PRODUCTS.forEach(function(p){if(p.fam){(FAM[p.fam]=FAM[p.fam]||[]).push(p.id)}});
+Object.keys(FAM).forEach(function(f){FAM[f].sort(function(a,b){return (P(a).szr||0)-(P(b).szr||0)})});
+
+/* ---- 2. curated kit templates (idea chips -> prefilled kits) ---- */
+var NKTPL={
+ pooja:{name:'Pooja Kit',e:'\u{1FA94}',type:'occasion',desc:'Diya, dhoop & prasad essentials',items:[['agb',1],['cmp',1],['wck',1],['flw',1],['mtc',1],['ghe',1],['sgr',1],['ba5',2],['tur',1]]},
+ movie:{name:'Movie Night',e:'\u{1F37F}',type:'occasion',desc:'Snacks & sips for the couch',items:[['pop',2],['lay',1],['nch',1],['sls',1],['ccl',1],['icf',1],['dms',1],['kkt',1]]},
+ tiffin:{name:'Tiffin Prep',e:'\u{1F371}',type:'routine',desc:'Weekday lunchbox staples',items:[['brd',1],['btr',1],['egg',1],['chz',1],['mgi',1],['poh',1],['jui',1],['ba5',2]]},
+ guest:{name:'Guest Arrival Kit',e:'\u{1F6CE}\u{FE0F}',type:'occasion',desc:'Chai-nashta for surprise guests',items:[['tea1',1],['mlk',2],['sgr',1],['mrg',1],['rsk',1],['bhj',1],['dms',1],['jui',1],['nap',1]]},
+ match:{name:'Match Day',e:'\u{1F3CF}',type:'occasion',desc:'Stadium vibes at home',items:[['nch',1],['sls',1],['tup',2],['lay',2],['kur',1],['pnt',1],['ffr',1],['fpt',1]]}
+};
+
+/* ---- 3. schedule-your-order state + screen ---- */
+let schedSlot=null, schedMode='slot', schedDay=0, pendingSlot=null, schedExpanded=false, tipAmt=0;
+var SLOTS_TODAY=['9 - 10 PM','10 - 11 PM','11 - 12 AM'];
+var SLOTS_TMRW={MORNING:['6 - 7 AM','7 - 8 AM','8 - 9 AM','9 - 10 AM','10 - 11 AM','11 - 12 PM'],AFTERNOON:['12 - 1 PM','1 - 2 PM','2 - 3 PM','3 - 4 PM','4 - 5 PM'],EVENING:['5 - 6 PM','6 - 7 PM','7 - 8 PM','8 - 9 PM','9 - 10 PM','10 - 11 PM','11 - 12 AM']};
+function slotBtn(s,d){var on=pendingSlot&&pendingSlot.day===d&&pendingSlot.slot===s;return '<button class="slot'+(on?' on':'')+'" data-act="sched-slot" data-d="'+d+'" data-s="'+s+'">'+s+'</button>'}
+function renderSched(){
+  var body=document.querySelector('#schedBody');if(!body)return;
+  var n=itemCount(),ids=Array.from(cart.keys());
+  var th=ids.slice(0,3).map(function(id){var p=P(id);return '<span class="t" style="background:'+p.bg+'">'+p.e+'</span>'}).join('')+(ids.length>3?'<span class="t more">+'+(ids.length-3)+'</span>':'');
+  var schedSub=schedMode!=='slot'?'Order now, get it later':(pendingSlot?(pendingSlot.day?'6 Jul':'5 Jul')+', '+pendingSlot.slot:'Select a slot');
+  var slots='';
+  if(schedMode==='slot'){
+    slots+='<div class="daytabs"><button class="daytab'+(schedDay===0?' on':'')+'" data-act="sched-day" data-d="0"><b>Today, 5 Jul</b><span>3 Slots</span></button><button class="daytab'+(schedDay===1?' on':'')+'" data-act="sched-day" data-d="1"><b>Tomorrow, 6 Jul</b><span>18 Slots</span></button></div>';
+    if(schedDay===0){
+      slots+='<div class="slotlbl">\u23F1 EARLIEST</div><div class="slotgrid">'+SLOTS_TODAY.map(function(s){return slotBtn(s,0)}).join('')+'</div>';
+    }else{
+      slots+='<div class="slotlbl">\u2600\uFE0F MORNING</div><div class="slotgrid">'+SLOTS_TMRW.MORNING.map(function(s){return slotBtn(s,1)}).join('')+'</div>';
+      var aft=schedExpanded?SLOTS_TMRW.AFTERNOON:SLOTS_TMRW.AFTERNOON.slice(0,3);
+      slots+='<div class="slotlbl">\u{1F305} AFTERNOON</div><div class="slotgrid">'+aft.map(function(s){return slotBtn(s,1)}).join('')+'</div>';
+      if(schedExpanded){
+        slots+='<div class="slotlbl">\u{1F319} EVENING</div><div class="slotgrid">'+SLOTS_TMRW.EVENING.map(function(s){return slotBtn(s,1)}).join('')+'</div>'
+         +'<button class="moreslots" data-act="sched-more">Show Less \u2303</button>';
+      }else{
+        slots+='<button class="moreslots" data-act="sched-more">More Slots \u2304</button>';
+      }
+    }
+  }
+  body.innerHTML=
+   '<div class="schedban"><h3>Get it now or later!</h3><div class="planrow"><span class="planchip">\u{1F45C} Plan your deliveries</span><span class="planchip">\u{1F4C6} Choose a time slot</span></div></div>'
+   +'<div class="cardsec" style="margin:12px 14px">'
+    +'<div class="shiphead"><div class="thumbs">'+th+'</div><div class="grow"><h4>Shipment <span class="shiptag">1 of 1</span></h4><p>'+n+' Items <span style="color:#D9DCE2">\u2758</span> <a data-act="ship-items">View items</a></p></div></div>'
+    +'<div class="moderow">'
+     +'<button class="modecard'+(schedMode==='instant'?' oni':'')+'" data-act="sched-mode" data-m="instant"><div class="tx"><b>Instant Delivery</b><span>6 min</span></div><span class="em">\u26A1</span></button>'
+     +'<button class="modecard'+(schedMode==='slot'?' ons':'')+'" data-act="sched-mode" data-m="slot"><div class="tx"><b>Schedule Delivery</b><span>'+schedSub+'</span></div><span class="em">\u{1F4C5}</span></button>'
+    +'</div>'+slots
+   +'</div>';
+}
+function sheetShipItems(){
+  var rows=Array.from(cart.entries()).map(function(pr){var p=P(pr[0]);
+    return '<div class="shipitem"><div class="img" style="background:'+p.bg+'">'+p.e+'</div><div class="grow"><b>'+esc(p.name)+'</b><span>'+esc(p.unit)+' X '+pr[1]+' piece(s)</span></div></div>';}).join('');
+  return '<div class="sheet-pad" style="position:relative"><button class="sheet-x icbtn" data-act="close-sheet" style="border:none"><svg viewBox="0 0 24 24" width="20" height="20" fill="none"><path d="M6 6l12 12M18 6 6 18" stroke="#1D1D29" stroke-width="2.4" stroke-linecap="round"/></svg></button>'
+   +'<div class="sheet-title" style="text-align:center">Shipment 1 of 1</div><div class="sheet-sub" style="text-align:center">'+itemCount()+' items</div>'+rows+'<div style="height:6px"></div></div>';
+}
+
+/* ---- 4. dynamic cart ETA card + footer ---- */
+function etaCard(){
+  var n=itemCount();
+  if(schedSlot){
+    return '<div class="deliv-h"><div class="calic">\u{1F4C5}</div>'
+     +'<div class="grow"><h4 style="font-size:15px">Arriving on '+schedSlot.short+', '+schedSlot.slot+'</h4><p>Shipment scheduled</p></div>'
+     +'<button class="linkpink" data-act="open-sched" style="font-size:15px;font-weight:800">Edit</button></div>';
+  }
+  return '<div class="deliv-h"><div class="clock"><svg viewBox="0 0 24 24" width="22" height="22" fill="none"><circle cx="12" cy="12" r="8.4" stroke="#1D1D29" stroke-width="2"/><path d="M12 7.6V12l3 1.8" stroke="#1D1D29" stroke-width="2" stroke-linecap="round"/></svg></div>'
+   +'<div class="grow"><h4>Delivering in 5 mins</h4><p>'+n+' item'+(n>1?'s':'')+'</p></div>'
+   +'<button class="sched" data-act="open-sched">\u{1F4C5} Schedule</button></div>';
+}
+function renderCartFoot(){
+  var f=document.querySelector('#cartfoot');if(!f)return;
+  if(schedSlot){
+    f.innerHTML='<button class="paycod" style="flex:1" data-act="pay-online">Click to Pay '+money(toPay())+'</button>';
+  }else{
+    f.innerHTML='<div class="topay"><span>To Pay</span><b id="footPay">'+money(toPay())+'</b></div><button class="payonline" data-act="pay-online">Pay Online</button><button class="paycod" data-act="pay-cod">Pay Cash/UPI<small>(on delivery)</small></button>';
+  }
+}
+
+/* ---- 5. offers-for-you sheet (dark, milestone timeline) ---- */
+function sheetOffers(){
+  var s=subtotal(),rows=[],hot=false;
+  if(s>=FREE_MIN)rows.push({st:'done',t:'Free delivery unlocked \u{1F389}',sub:'Saved \u20B9'+DELIVERY_FEE});
+  else{hot=true;rows.push({st:'hot',t:'Unlock free delivery',sub:'Shop for \u20B9'+(FREE_MIN-s)+' more',pct:Math.min(96,Math.round(s/FREE_MIN*100))});}
+  COUPONS.forEach(function(c){
+    if(s>=c.min)rows.push({st:'done',t:'Extra \u20B9'+c.amt+' OFF unlocked \u2728',sub:couponApplied===c.code?'Applied on this cart \u2713':'Tap apply to redeem on this cart',code:couponApplied===c.code?null:c.code});
+    else if(!hot){hot=true;rows.push({st:'hot',t:'Unlock extra \u20B9'+c.amt+' OFF',sub:'Shop for \u20B9'+(c.min-s)+' more',pct:Math.max(4,Math.round(s/c.min*100))});}
+    else rows.push({st:'lock',t:'Unlock extra \u20B9'+c.amt+' OFF',sub:'Shop for \u20B9'+(c.min-s)+' more'});
+  });
+  var html=rows.map(function(r){
+    var node=r.st==='done'?'<div class="dot done">\u2713</div>':'<div class="dot">\u{1F512}</div>';
+    var right=r.st==='done'?(r.code?'<button class="offapply" data-act="offers-apply" data-code="'+r.code+'">Apply</button>':''):'<span class="offlock">Locked</span>';
+    var bar=r.st==='hot'?'<div class="offbar"><i style="width:'+r.pct+'%"></i></div>':'';
+    return '<div class="offrow"><div class="offnode">'+node+'<span class="ln"></span></div>'
+     +'<div class="offcard '+r.st+'"><div class="offtop"><div class="tx"><b>'+r.t+'</b><span>'+r.sub+'</span></div>'+right+'</div>'+bar+'</div></div>';
+  }).join('');
+  return '<div class="offersheet"><button class="offx" data-act="close-sheet">\u2715</button><h3>Offers for you</h3>'+html+'</div>';
+}
+
+/* ---- 6. kit rows: brand chip + pack-size chip; size-aware swap ---- */
+kitItemRow=function(it,i,f){
+  var p=P(it.pid),q=kQty(it,f),off=p.mrp>p.price,chips='';
+  if(it.grp)chips+='<button class="brandchip" data-act="kit-swap" data-i="'+i+'">'+esc(brandShort(it.pid))+' \u00B7 Swap \u25BE</button>';
+  if(p.fam&&FAM[p.fam]&&FAM[p.fam].length>1)chips+='<button class="brandchip szchip" data-act="kit-size" data-i="'+i+'">'+esc(p.sz||'Size')+' \u25BE</button>';
+  return '<div class="kitem'+(it.inc?'':' off')+'">'
+   +'<button class="kchk'+(it.inc?' on':'')+'" data-act="kit-toggle" data-i="'+i+'">'+(it.inc?'\u2713':'')+'</button>'
+   +'<div class="kimg" style="background:'+p.bg+'">'+p.e+'</div>'
+   +'<div class="kmid"><div class="knm">'+esc(p.name)+'</div><div class="kun">'+esc(p.unit)+(q>1?' \u00D7 '+q:'')+'</div>'+(chips?'<div class="chiprow">'+chips+'</div>':'')+'</div>'
+   +'<div class="kright"><div class="stepper lite sm"><button data-act="kit-dec" data-i="'+i+'">\u2212</button><span class="q'+(it.ovr!=null?' ovr':'')+'">'+q+'</span><button data-act="kit-inc" data-i="'+i+'">+</button></div>'
+   +'<div class="kprice">'+(off?'<s>'+money(p.mrp*q)+'</s>':'')+money(Math.round(p.price*q))+'</div>'
+   +'<button class="krm" data-act="kit-remove" data-i="'+i+'" title="Remove">\u00D7</button></div></div>';
+};
+sheetBrand=function(i){
+  var k=curKit(),it=k.items[i],g=VARGROUPS[it.grp],cur=P(it.pid),curSz=cur.sz;
+  var rows=g.ids.map(function(base){
+    var pid=base,bf=P(base).fam;
+    if(bf&&curSz&&FAM[bf]){var m=FAM[bf].filter(function(x){return P(x).sz===curSz})[0];if(m)pid=m}
+    var p=P(pid),on=brandShort(pid)===brandShort(it.pid);
+    var szNote=(curSz&&(p.sz||'')!==curSz&&!(p.unit&&p.unit.indexOf(curSz)>-1))?' <span style="font-size:10.5px;color:#B4530A;font-weight:800">closest size</span>':'';
+    return '<div class="payrow" data-act="pick-brand" data-i="'+i+'" data-pid="'+pid+'" style="cursor:pointer;padding:13px 0">'
+     +'<div class="paylogo" style="background:'+p.bg+';border:none;font-size:22px">'+p.e+'</div>'
+     +'<div class="grow"><h5 style="font-size:15px">'+esc(p.name)+(on?' <span class="newbadge">IN KIT</span>':'')+szNote+'</h5><p>'+esc(p.unit)+' \u00B7 <b style="color:#1F8A3D">'+money(p.price)+'</b> <s style="color:#9AA0AC">'+money(p.mrp)+'</s></p></div>'
+     +'<span class="radio'+(on?' on':'')+'"></span></div>';
+  }).join('');
+  return '<div class="sheet-pad"><div class="sheet-title" style="font-size:19px">Choose brand</div>'
+   +'<div class="sheet-sub">'+esc(g.label)+(curSz?' \u00B7 keeping your '+curSz+' size':' \u00B7 standard market pack sizes')+'</div>'
+   +'<div style="height:6px"></div>'+rows+'</div>';
+};
+function sheetSize(i){
+  var k=curKit(),it=k.items[i],p=P(it.pid),ids=(p.fam&&FAM[p.fam])?FAM[p.fam]:[it.pid];
+  var rows=ids.map(function(pid){
+    var q=P(pid),on=pid===it.pid;
+    return '<div class="payrow" data-act="pick-size" data-i="'+i+'" data-pid="'+pid+'" style="cursor:pointer;padding:13px 0">'
+     +'<div class="paylogo" style="background:'+q.bg+';border:none;font-size:22px">'+q.e+'</div>'
+     +'<div class="grow"><h5 style="font-size:16px">'+esc(q.sz||q.unit)+(on?' <span class="newbadge">IN KIT</span>':'')+'</h5><p>'+esc(q.unit)+' \u00B7 <b style="color:#1F8A3D">'+money(q.price)+'</b> <s style="color:#9AA0AC">'+money(q.mrp)+'</s></p></div>'
+     +'<span class="radio'+(on?' on':'')+'"></span></div>';
+  }).join('');
+  return '<div class="sheet-pad"><div class="sheet-title" style="font-size:19px">Choose pack size</div>'
+   +'<div class="sheet-sub">'+esc(brandShort(it.pid))+' \u00B7 standard market sizes only</div>'
+   +'<div style="height:6px"></div>'+rows+'</div>';
+}
+
+/* ---- 7. scheduled orders + delivered success page ---- */
+const __startTracking3=startTracking;
+startTracking=function(mode){
+  var sched=schedSlot;schedSlot=null;
+  var savedNow=saved();
+  __startTracking3(mode);
+  window.__ordSaved=savedNow;
+  document.querySelectorAll('.schednote').forEach(function(x){x.remove()});
+  if(sched){
+    clearInterval(trackTimer);
+    var rid=document.querySelector('#riderEmoji');if(rid)rid.style.display='none';
+    document.querySelector('#trTitle').textContent='Arriving on '+sched.short+', '+sched.slot;
+    document.querySelector('#timeline').innerHTML=
+      '<div class="tl-item done"><span class="ln"></span><div class="dot">\u2713</div><div><b>Order placed</b><span>We have received your order</span></div></div>'
+     +'<div class="tl-item now"><span class="ln"></span><div class="dot"></div><div><b>Slot reserved</b><span>'+sched.label+' \u00B7 '+sched.slot+'</span></div></div>'
+     +'<div class="tl-item"><span class="ln"></span><div class="dot"></div><div><b>Out for delivery</b><span>We\u2019ll ping you 30 min before your slot</span></div></div>';
+    document.querySelector('#timeline').insertAdjacentHTML('afterend','<div class="segnote schednote" style="margin:8px 24px 0">You can cancel up to 30 min before your slot</div>');
+  }else{
+    clearTimeout(window.__dlvT);
+    window.__dlvT=setTimeout(function(){buildDelivered();go('delivered')},4*2600+700);
+  }
+};
+function buildDelivered(){
+  var a=ADDRESSES[selAddr];
+  var items=orderSnap.map(function(pr){var p=P(pr[0]);
+    return '<div class="rowline" style="padding:6px 0"><div class="cicon" style="background:'+p.bg+';border:none">'+p.e+'</div><div class="grow"><div style="font-weight:700;font-size:13.5px">'+esc(p.name)+'</div><div class="t-sub" style="font-size:11.5px">'+esc(p.unit)+' \u00D7 '+pr[1]+'</div></div><b style="font-size:13.5px">'+money(p.price*pr[1])+'</b></div>';}).join('');
+  tipAmt=0;
+  document.querySelector('#dlvBody').innerHTML=
+   '<div class="dl-hero"><div class="dl-check">\u2713</div><h2>Order Delivered \u{1F389}</h2><p>Delivered in 6 minutes \u00B7 to '+esc(a.label)+'</p></div>'
+   +'<div class="cardsec"><div class="rowline"><div class="dl-avatar">\u{1F6F5}</div><div class="grow"><div class="t-strong" style="font-size:15.5px">Vikas Kumar \u2B50 4.9</div><div class="t-sub" style="font-size:12px">Your delivery partner</div></div></div>'
+    +'<div class="t-strong" style="font-size:13.5px;margin-top:12px">Say thanks with a tip</div>'
+    +'<div class="tiprow">'+[10,20,30].map(function(x){return '<button class="tipchip" data-act="tip" data-amt="'+x+'">\u20B9'+x+'</button>'}).join('')+'<button class="tipchip" data-act="tip" data-amt="0">Other</button></div>'
+    +'<div class="t-sub" style="font-size:11.5px;margin-top:8px">100% of your tip goes to Vikas</div>'
+   +'</div>'
+   +'<div class="cardsec"><div class="t-strong" style="font-size:15px">Rate your order</div>'
+    +'<div class="ratechips ratewrap" style="margin-top:8px"><button class="rstar" data-star="1">\u2B50</button><button class="rstar" data-star="2">\u2B50</button><button class="rstar" data-star="3">\u2B50</button><button class="rstar" data-star="4">\u2B50</button><button class="rstar" data-star="5">\u2B50</button></div>'
+   +'</div>'
+   +'<div class="savebar" style="margin:10px 12px;border-radius:12px">You saved <b>'+money(window.__ordSaved||0)+'</b> on this order \u{1F389}</div>'
+   +'<div class="cardsec"><div class="t-strong" style="font-size:15px;margin-bottom:4px">Order summary</div>'+items
+    +'<div class="dashed"></div>'
+    +'<div class="rowline" style="padding:6px 0"><div class="grow t-sub" style="font-weight:700">'+(orderMode==='cod'?'Collected via Cash / UPI':'Paid via Paytm UPI')+'</div><b>'+money(orderAmt)+'</b></div>'
+    +'<div style="display:flex;gap:10px;margin-top:10px"><button class="btn btn-outline" style="flex:1;height:44px;border-radius:12px;font-size:13.5px" data-act="dl-invoice">\u{1F4C4} Invoice</button><button class="btn btn-outline" style="flex:1;height:44px;border-radius:12px;font-size:13.5px" data-act="dl-help">Need help?</button></div>'
+   +'</div>'
+   +'<div style="padding:4px 14px 26px;display:flex;flex-direction:column;gap:10px">'
+    +'<button class="btn btn-pink btn-big" data-act="save-order-kit">\u{1F4BE} Save this order as a Kit</button>'
+    +'<button class="btn btn-outline btn-big" style="height:50px" data-act="reorder">Reorder these items</button>'
+    +'<button class="btn btn-ghost btn-big" style="height:46px;color:#1D1D29" data-act="back-home">Back to Home</button>'
+   +'</div>';
+}
+
+/* ---- 8. router hook + events + guards ---- */
+const __show3=show;
+show=function(id){__show3(id);if(id==='sched')renderSched()};
+const __ua3=updateAll;
+updateAll=function(){if(itemCount()===0)schedSlot=null;__ua3()};
+
+document.addEventListener('click',function(e){
+  var el=e.target.closest('[data-act]');if(!el)return;
+  switch(el.dataset.act){
+    case 'open-sched':
+      if(itemCount()===0){toast('Your cart is empty');break}
+      schedMode='slot';schedExpanded=false;
+      if(schedSlot){schedDay=schedSlot.day;pendingSlot={day:schedSlot.day,slot:schedSlot.slot};
+        if(schedSlot.day===1&&(SLOTS_TMRW.AFTERNOON.indexOf(schedSlot.slot)>2||SLOTS_TMRW.EVENING.indexOf(schedSlot.slot)>-1))schedExpanded=true}
+      else{schedDay=0;pendingSlot=null}
+      go('sched');break;
+    case 'sched-mode':schedMode=el.dataset.m;renderSched();break;
+    case 'sched-day':schedDay=+el.dataset.d;renderSched();break;
+    case 'sched-slot':pendingSlot={day:+el.dataset.d,slot:el.dataset.s};renderSched();break;
+    case 'sched-more':schedExpanded=!schedExpanded;renderSched();break;
+    case 'ship-items':openSheet(sheetShipItems());break;
+    case 'sched-confirm':
+      if(schedMode==='instant'){schedSlot=null;toast('Instant delivery it is \u26A1')}
+      else{
+        if(!pendingSlot){toast('Pick a time slot first');break}
+        schedSlot={day:pendingSlot.day,slot:pendingSlot.slot,short:pendingSlot.day?'6 Jul':'5 Jul',label:pendingSlot.day?'Tomorrow, 6 Jul':'Today, 5 Jul'};
+        toast('Delivery scheduled \u2713');
+      }
+      back();break;
+    case 'kit-size':openSheet(sheetSize(+el.dataset.i));break;
+    case 'pick-size':{
+      var k=curKit();k.items[+el.dataset.i].pid=el.dataset.pid;
+      closeSheet();renderKitDetail();
+      toast('Size updated to '+(P(el.dataset.pid).sz||P(el.dataset.pid).unit));break}
+    case 'offers-apply':
+      couponApplied=el.dataset.code;closeSheet();updateAll();
+      toast('Coupon applied \u{1F389}');break;
+    case 'tip':{
+      var amt=+el.dataset.amt;
+      document.querySelectorAll('.tipchip').forEach(function(c){c.classList.toggle('on',c===el)});
+      if(!amt){toast('Custom tips are mocked in this prototype')}
+      else{tipAmt=amt;toast('\u20B9'+amt+' tip added for Vikas \u2764\uFE0F')}
+      break}
+    case 'dl-invoice':toast('Invoice saved to downloads \u{1F4C4}');break;
+    case 'dl-help':toast('Support chat is mocked in this prototype');break;
+    case 'reorder':
+      orderSnap.forEach(function(pr){cart.set(pr[0],(cart.get(pr[0])||0)+pr[1]);lastAdded=pr[0]});
+      updateAll();toast('Items added back to cart \u{1F6D2}');
+      stack.length=0;stack.push('home');go('cart');break;
+  }
+});
+</script>
+
+</body>
+</html>
